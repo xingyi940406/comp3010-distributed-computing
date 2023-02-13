@@ -24,7 +24,10 @@ class Broker:
             self.initSocket(left, self.host, self.clientPort)
             self.initSocket(right, self.host, self.workerPort)
             
-            inputs = [left, right], clients = [], workers = [], outputs = []
+            inputs = [left, right]
+            clients = []
+            workers = []
+            outputs = []
             while True:
                 try:
                     readable, writeable, exceptional = select.select(
@@ -121,11 +124,11 @@ class Broker:
                     print("Something happened... I guess...")
                     print(e)
 
-    def initSocket(self, socket, host, port):
-        socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        socket.bind((host, port))
-        socket.setblocking(False)
-        socket.listen()
+    def initSocket(self, s, host, port):
+        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        s.bind((host, port))
+        s.setblocking(False)
+        s.listen()
     
     def addJob(self, job: Job):
         self.jobs.append(job)
