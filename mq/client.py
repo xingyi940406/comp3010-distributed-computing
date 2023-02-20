@@ -13,11 +13,11 @@ clients = [
 ]
 
 for client in clients:
-    client.connect(('localhost', 10000))
+    client.connect(('localhost', 8000))
 
 for request in requests:
     for i, client in enumerate(clients):
-        time.sleep(2)
+        time.sleep(1)
         o = request + '-client-' + str(i)
         client.send(o.encode())
 

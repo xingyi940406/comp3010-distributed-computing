@@ -8,14 +8,18 @@ class Worker:
         
     def poll(self):
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-            s.connect(('localhost', 10001))
+            s.connect(('localhost', 8001))
+            
             while True:
-                time.sleep(3)
+                print('Start')
                 str = 'GET - Text'
                 s.send(str.encode())
+                print('Start sending')
                 
                 # on job polled
-                data = s.recv(1024)
+                data = s.recv(4096) # Get stuck here
+                
+                print('After polling')
 
                 if not data:
                     print('Pending')
@@ -24,10 +28,12 @@ class Worker:
                 else:
                     print('Broker', data.decode())
                     # on job done
-                    time.sleep(3)
                     str = 'POST job-is-done'
                     print(str)
                     s.send(str.encode())
+                    print('After sending')
+                    
+                print('End')
     
     def onJobPolled(self):
         pass

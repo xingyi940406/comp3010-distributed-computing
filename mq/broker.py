@@ -1,6 +1,7 @@
 import socket
 import sys
 import select
+import time
 
 class Job:   
     
@@ -55,61 +56,69 @@ class Broker:
                             workers.append(conn)
                         elif r in clients:
                             data = r.recv(1024)
-                            
+                        
                             print("Client Data", data)
-                            print("Client Str", data.decode('utf-8'))
-
+                        
                             if len(data) == 0:
                                 clients.remove(r)
                                 
-                                print('Clients size', len(clients))
+                                print('Clients size after removal', len(clients))
                                 
                             elif data:
-                                req = data.decode('utf-8')
-                                payload = req.split('JOB ')[1]
+                                for payload in data.decode('utf-8').split('JOB '):
+                                    # TODO - check for empty payload
+                                    
+                                    print('Adding job', payload)
                                 
-                                # TODO - check for empty payload
+                                    self.addJob(Job(self.size(), payload))
+                                    
+                                    print('Queue size after ADD', len(self.jobs))
                                 
-                                print('Adding job', payload)
-                                self.addJob(Job(self.size(), payload))
                         elif r in workers:
                             data = r.recv(1024)
                             
                             print("Worker Data", data)
-                            print("Worker Str", data.decode('utf-8'))
-                            
+                                                        
                             if len(data) == 0:
-                                workers.remove(r)
                                 
+                                workers.remove(r)
+                                print('Worker removed')
                                 print('Workers size', len(workers))
                                 
                             elif data:
-                                req = data.decode('utf-8').split(' ')
+                                decoded = data.decode('utf-8').split(' ')
                                 
-                                if len(req) == 0:
+                                if len(decoded) == 0:
                                     
                                     print('Shit')
                                     
                                 else:
-                                    if req[0] == 'GET':
-                                        print('Worker - GET', req[0])
+                                    if decoded[0] == 'GET':
+                                        print('Worker - GET', decoded[0])
                                         print('Searching for job')
                                         
-                                        res = ''
-                                        for j in self.jobs:
-                                            if (j.issued == False):
-                                                res = j.payload
-                                                j.issued = True
-                                        
-                                        if (res == ''):
-                                            print('-- Fuck --')
-                                            # Not found
+                                        target = None
+                                        found = False
+                                        i = 0
+                                        while (i < len(self.jobs) and found == False):
+                                            job = self.jobs[i]
+                                            if (job.issued == False):
+                                                job.issued = True
+                                                target = job
+                                                found = True
+                                            i += 1
+                                            
+                                        if (found == False):
+                                            print('-- Job not found --')
                                         else:
-                                            r.sendall(res.encode())
-                                            print('Job sent')
-                                    elif req[0] == 'POST':
+                                            r.sendall(target.payload.encode()) # Send job
+                                            
+                                            print('Job sent', i)
+                                            print('Workers size', len(workers))
+                                            
+                                    elif decoded[0] == 'POST':
                                         print('Worker - POST')
-                                        print(req[1])
+                                        print(decoded[1])
                                     else:
                                         print('Worker - SHIT')
                         else:
@@ -131,6 +140,7 @@ class Broker:
         s.listen()
     
     def addJob(self, job: Job):
+        print('Job added - ', job.payload)
         self.jobs.append(job)
         
     def job(self, key: int):
@@ -146,4 +156,4 @@ class Broker:
         for job in self.jobs:
             print(job.key, job.payload)
         
-Broker('localhost', 3000, 3001).run()
+Broker('localhost', 8000, 8001).run()
