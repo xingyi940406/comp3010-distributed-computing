@@ -1,7 +1,7 @@
 import socket
 import select
 import sys
-from contants import Delimiter, Status, Request, Connection, Decoding
+from contants import Delimiter, Status, EventType, Connection, Decoding
     
 class Broker:
     class Job:   
@@ -74,44 +74,42 @@ class Broker:
         if len(data) == 0:
             clients.remove(socket)
         elif data:
-            req = data.decode(Decoding.UTF_8)
-            self.onClientRequestObserved(socket, req)
+            self.onClientEventObserved(socket, data.decode(Decoding.UTF_8))
             
     def onWorkerObserved(self, socket, workers):
         data = socket.recv(1024)
         if len(data) == 0:
             workers.remove(socket)
         elif data:
-            req = data.decode(Decoding.UTF_8)
-            self.onWorkerRequestObserved(socket, req)
+            self.onWorkerEventObserved(socket, data.decode(Decoding.UTF_8))
      
-    def onClientRequestObserved(self, socket, req):
-        type = self.requestType(req)
-        if type == Request.STATUS:
-            self.sendJobStatus(socket, req)
+    def onClientEventObserved(self, socket, event):
+        type = self.getEventType(event)
+        if type == EventType.STATUS:
+            self.sendJobStatus(socket, event)
         else:
-            self.enqueueJobs(socket, req)
+            self.enqueueJobs(socket, event)
             
-    def onWorkerRequestObserved(self, socket, req):
-        type = self.requestType(req)
-        if type == Request.POLL:
+    def onWorkerEventObserved(self, socket, event):
+        type = self.getEventType(event)
+        if type == EventType.POLL:
             self.onJobPolling(socket)
-        elif type == Request.DONE:
-            self.onJobDone(req)
+        elif type == EventType.DONE:
+            self.onJobDone(event)
         else:
             print('Fuck')
 
-    def onJobDone(self, req):
-        id = int(req.split(Request.DONE + Delimiter.SPACE)[1])
+    def onJobDone(self, event):
+        id = int(event.split(EventType.DONE + Delimiter.SPACE)[1])
         job = self.jobById(id)
         job.status = Status.DONE
         print('Job', str(id), 'is done')
 
     def onJobPolling(self, socket):
         job = self.getPendingJob()
-        result = job.toString() if job else Request.NOT_FOUND
+        result = job.toString() if job else EventType.NOT_FOUND
         socket.sendall(result.encode())
-        job.status = Status.DONE 
+        job.status = Status.IN_PROGRESS 
             
     def getPendingJob(self):
         i = 0
@@ -122,24 +120,24 @@ class Broker:
             i += 1
         return None
       
-    def enqueueJobs(self, socket, req):
-        works = req.split(Delimiter.JOB)
+    def enqueueJobs(self, socket, event):
+        works = event.split(Delimiter.JOB)
         for work in works:
             if len(work) > 0:
                 id = str(self.size())
                 self.queue.append(Broker.Job(id, work))
                 socket.sendall((id + Delimiter.NEW_LINE).encode())
                 
-    def sendJobStatus(self, socket, req):
-        id = int(req.split(Delimiter.SPACE)[1])
+    def sendJobStatus(self, socket, event):
+        id = int(event.split(Delimiter.SPACE)[1])
         job = self.jobById(id)
         socket.sendall(job.status.encode())
     
     def jobById(self, id):
         return self.queue[id]
     
-    def requestType(self, req):
-        return req.split(Delimiter.SPACE)[0]
+    def getEventType(self, event):
+        return event.split(Delimiter.SPACE)[0]
     
     def size(self):
         return len(self.queue)

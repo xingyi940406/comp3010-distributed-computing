@@ -4,7 +4,7 @@ class Delimiter:
     NEW_LINE = '\n'
     JOB = '\r\nJOB '
 
-class Request:
+class EventType:
     JOB = 'JOB'
     POLL = 'POLL'
     STATUS = 'STATUS'
@@ -14,6 +14,7 @@ class Request:
 class Status:
     DONE = 'Done'
     PENDING = 'Pending'
+    IN_PROGRESS = 'In Progress'
     
 class Connection:
     CLIENT_PORT = 8001
