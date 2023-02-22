@@ -4,7 +4,7 @@ class Delimiter:
     NEW_LINE = '\n'
     JOB = '\r\nJOB '
 
-class EventType:
+class Event:
     JOB = 'JOB'
     POLL = 'POLL'
     STATUS = 'STATUS'

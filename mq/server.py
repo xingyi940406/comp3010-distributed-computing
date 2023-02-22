@@ -1,7 +1,7 @@
 import socket
 import select
 import sys
-from contants import Delimiter, Status, EventType, Connection, Decoding
+from contants import Delimiter, Status, Event, Connection, Decoding
     
 class Broker:
     class Job:   
@@ -45,12 +45,7 @@ class Broker:
         
         while True:
             try:
-                readable, writeable, exceptional = select.select(
-                    inputs + clients + workers, 
-                    outputs, 
-                    inputs + clients + workers, 
-                    3)
-                
+                readable = select.select(inputs + clients + workers, outputs, inputs + clients + workers, 3)
                 for r in readable:
                     if r is clientSocket:
                         self.readOn(r, clients)
@@ -85,29 +80,29 @@ class Broker:
      
     def onClientEventObserved(self, socket, event):
         type = self.getEventType(event)
-        if type == EventType.STATUS:
+        if type == Event.STATUS:
             self.sendJobStatus(socket, event)
         else:
             self.enqueueJobs(socket, event)
             
     def onWorkerEventObserved(self, socket, event):
         type = self.getEventType(event)
-        if type == EventType.POLL:
+        if type == Event.POLL:
             self.onJobPolling(socket)
-        elif type == EventType.DONE:
+        elif type == Event.DONE:
             self.onJobDone(event)
         else:
             print('Fuck')
 
     def onJobDone(self, event):
-        id = int(event.split(EventType.DONE + Delimiter.SPACE)[1])
+        id = int(event.split(Event.DONE + Delimiter.SPACE)[1])
         job = self.jobById(id)
         job.status = Status.DONE
         print('Job', str(id), 'is done')
 
     def onJobPolling(self, socket):
         job = self.getPendingJob()
-        result = job.toString() if job else EventType.NOT_FOUND
+        result = job.toString() if job else Event.NOT_FOUND
         socket.sendall(result.encode())
         job.status = Status.IN_PROGRESS 
             
@@ -121,8 +116,7 @@ class Broker:
         return None
       
     def enqueueJobs(self, socket, event):
-        works = event.split(Delimiter.JOB)
-        for work in works:
+        for work in event.split(Delimiter.JOB):
             if len(work) > 0:
                 id = str(self.size())
                 self.queue.append(Broker.Job(id, work))
@@ -143,7 +137,7 @@ class Broker:
         return len(self.queue)
     
     def readOn(self, socket, registry):
-        conn, addr = socket.accept()                        
+        conn = socket.accept()                        
         conn.setblocking(False)
         registry.append(conn)
 
