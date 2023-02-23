@@ -4,15 +4,15 @@ import time
 with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as client:
     client.connect(('localhost', 8001))
     
-    job = 'JOB xxx\nJOB ooo\n'
+    job = 'ooo\r\nJOB xxx\r\nJOB ooo\r\n'
     client.send(job.encode())
-    job = 'JOB xxx\nJOB ooo\n'
+    job = 'ooo\r\nJOB xxx\r\nJOB ooo\r\n'
     client.send(job.encode())
-    job = 'JOB xxx\nJOB ooo\n'
+    job = 'ooo\r\nJOB xxx\r\nJOB ooo\r\n'
     client.send(job.encode())
-    job = 'JOB xxx\nJOB ooo\n'
+    job = 'ooo\r\nJOB xxx\r\nJOB ooo\r\n'
     client.send(job.encode())
-    job = 'JOB xxx\nJOB ooo\n'
+    job = 'ooo\r\nJOB xxx\r\nJOB ooo\r\n'
     client.send(job.encode())
 
     

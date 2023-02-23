@@ -45,7 +45,8 @@ class Broker:
         
         while True:
             try:
-                readable = select.select(inputs + clients + workers, outputs, inputs + clients + workers, 3)
+                readable, writable, exceptional = select.select(inputs + clients + workers, outputs, inputs + clients + workers, 3)
+                print('Trying')
                 for r in readable:
                     if r is clientSocket:
                         self.readOn(r, clients)
@@ -58,7 +59,7 @@ class Broker:
                     else:
                         print('Shit')
             except socket.timeout as e:
-                pass
+                print('Time out')
             except KeyboardInterrupt as e:
                 sys.exit(0)
             except Exception as e:
@@ -116,11 +117,16 @@ class Broker:
         return None
       
     def enqueueJobs(self, socket, event):
-        for work in event.split(Delimiter.JOB):
-            if len(work) > 0:
+        for u in self.unitsOfWork(event):
+            if len(u) > 0:
                 id = str(self.size())
-                self.queue.append(Broker.Job(id, work))
+                self.queue.append(Broker.Job(id, u))
                 socket.sendall((id + Delimiter.NEW_LINE).encode())
+
+    def unitsOfWork(self, event):
+        unitsOfWorks = event.split(Delimiter.JOB)
+        unitsOfWorks[-1] = unitsOfWorks[-1].split(Delimiter.RETURN + Delimiter.NEW_LINE)[0]
+        return unitsOfWorks
                 
     def sendJobStatus(self, socket, event):
         id = int(event.split(Delimiter.SPACE)[1])
@@ -137,7 +143,7 @@ class Broker:
         return len(self.queue)
     
     def readOn(self, socket, registry):
-        conn = socket.accept()                        
+        conn, addr = socket.accept()                        
         conn.setblocking(False)
         registry.append(conn)
 

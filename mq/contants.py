@@ -2,6 +2,7 @@ class Delimiter:
     EMPTY = ''
     SPACE = ' '
     NEW_LINE = '\n'
+    RETURN = '\r'
     JOB = '\r\nJOB '
 
 class Event:
