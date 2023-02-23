@@ -1,5 +1,4 @@
 import socket
-import syslog
 import time
 
 class Worker:
@@ -10,7 +9,7 @@ class Worker:
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s, socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as o:
             s.connect(('localhost', 8002))
             while True:
-                # syslog.syslog(syslog.LOG_INFO, 'Fetching job')
+                o.sendto('Fetching job'.encode(), ('localhost', 12345))
                 s.send('POLL job'.encode())
                 data = s.recv(1024) # Get stuck here
                 if data:
@@ -21,14 +20,12 @@ class Worker:
                         id = result.split(' ')[0]
                         text = result.replace(id + ' ', '')
                         texts = text.split(' ')
-                        # syslog.syslog(syslog.LOG_INFO, 'Starting job')
+                        o.sendto('Starting job'.encode(), ('localhost', 12345))
                         for t in texts:
                             time.sleep(0.25)
-                            # o.sendto(t.encode(), ('localhost', 8002))
                             print(t)
-                            # syslog.syslog(syslog.LOG_INFO, t)
                         s.send(('DONE ' + id).encode())
-                        # syslog.syslog(syslog.LOG_INFO, 'Completed job')
+                        o.sendto('Completed job'.encode(), ('localhost', 12345))
                 else:
                     print('Shit')
                     
