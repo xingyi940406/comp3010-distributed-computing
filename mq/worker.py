@@ -8,15 +8,15 @@ class Worker:
     # TODO - Reconnets if disconnected
     def run(self):
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as workerSocket, socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as logSocket:
-            self.tryConnect(workerSocket)
+            self.connectOrRetry(workerSocket)
             while True:
                 try:
                     self.poll(workerSocket, logSocket) 
                 except socket.error:
                     workerSocket = socket.socket()
-                    self.tryConnect(workerSocket)
+                    self.connectOrRetry(workerSocket)
 
-    def tryConnect(self, workerSocket):
+    def connectOrRetry(self, workerSocket):
         connected = False
         while not connected:
             try:
@@ -35,12 +35,15 @@ class Worker:
         if data:
             result = data.decode()
             if result == 'NOT_FOUND':
-                print('Job not found')
-                time.sleep(1)
+                self.onJobNotFound()
             else:
                 self.onJobPolled(workerSocket, logSocket, result)
         else:
             print('Shit')
+
+    def onJobNotFound(self):
+        print('Job not found')
+        time.sleep(1)
                     
     def onJobPolled(self, workerSocket, logSocket, result):
         id = self.jobId(result)
@@ -49,6 +52,9 @@ class Worker:
             time.sleep(0.25)
             print(w)
             logSocket.sendto(w.encode(), ('localhost', 3000))
+        self.onJobDone(workerSocket, logSocket, id)
+
+    def onJobDone(self, workerSocket, logSocket, id):
         workerSocket.send(('DONE ' + id).encode())
         self.log(logSocket, 'Completed job ' + id)
 
