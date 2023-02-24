@@ -46,7 +46,7 @@ class Broker:
         while True:
             try:
                 readable, writable, exceptional = select.select(inputs + clients + workers, outputs, inputs + clients + workers, 3)
-                print('Trying')
+                print('Listening...')
                 for r in readable:
                     if r is clientSocket:
                         self.readOn(r, clients)
@@ -70,14 +70,14 @@ class Broker:
         if len(data) == 0:
             clients.remove(socket)
         elif data:
-            self.onClientEventObserved(socket, data.decode(Decoding.UTF_8))
+            self.onClientEventObserved(socket, data.decode(Decoding.UTF_8, 'ignore'))
             
     def onWorkerObserved(self, socket, workers):
         data = socket.recv(1024)
         if len(data) == 0:
             workers.remove(socket)
         elif data:
-            self.onWorkerEventObserved(socket, data.decode(Decoding.UTF_8))
+            self.onWorkerEventObserved(socket, data.decode(Decoding.UTF_8, 'ignore'))
      
     def onClientEventObserved(self, socket, event):
         type = self.getEventType(event)
@@ -101,12 +101,15 @@ class Broker:
         job.status = Status.DONE
         print('Job', str(id), 'is done')
 
+    # TODO - Issues to 1 worker only
     def onJobPolling(self, socket):
+        result = Event.NOT_FOUND
         job = self.getPendingJob()
-        result = job.toString() if job else Event.NOT_FOUND
+        if job:
+            result = job.toString()
+            job.status = Status.IN_PROGRESS 
         socket.sendall(result.encode())
-        job.status = Status.IN_PROGRESS 
-            
+          
     def getPendingJob(self):
         i = 0
         while (i < self.size()):
@@ -117,13 +120,13 @@ class Broker:
         return None
       
     def enqueueJobs(self, socket, event):
-        for u in self.unitsOfWork(event):
+        for u in self.getUnitsOfWork(event):
             if len(u) > 0:
                 id = str(self.size())
                 self.queue.append(Broker.Job(id, u))
                 socket.sendall((id + Delimiter.NEW_LINE).encode())
 
-    def unitsOfWork(self, event):
+    def getUnitsOfWork(self, event):
         unitsOfWorks = event.split(Delimiter.JOB)
         unitsOfWorks[-1] = unitsOfWorks[-1].split(Delimiter.RETURN + Delimiter.NEW_LINE)[0]
         return unitsOfWorks
@@ -131,10 +134,15 @@ class Broker:
     def sendJobStatus(self, socket, event):
         id = int(event.split(Delimiter.SPACE)[1])
         job = self.jobById(id)
-        socket.sendall(job.status.encode())
+        result = 'Job with ID ' + id
+        result += ' has status of ' + job.status if job else ' is not found'
+        socket.sendall(result.encode())
     
     def jobById(self, id):
-        return self.queue[id]
+        return None if self.outOfBounds(id) else self.queue[id]
+
+    def outOfBounds(self, id):
+        return id < 0 or id >= self.size()
     
     def getEventType(self, event):
         return event.split(Delimiter.SPACE)[0]
