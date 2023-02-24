@@ -17,10 +17,11 @@ class Status:
     PENDING = 'Pending'
     IN_PROGRESS = 'In Progress'
     
-class Connection:
+class Network:
     CLIENT_PORT = 8001
     WORKER_PORT = 8002
     HOST = 'localhost'
+    SYSLOG = 12345
     
 class Decoding:
     UTF_8 = 'utf-8'

@@ -1,3 +1,4 @@
+from contants import Event, Network, Delimiter
 import socket
 import time
 
@@ -5,7 +6,6 @@ class Worker:
     def __init__(self):
         self.inProgress = False
     
-    # TODO - Reconnets if disconnected
     def run(self):
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as workerSocket, socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as logSocket:
             self.connectOrRetry(workerSocket)
@@ -21,7 +21,7 @@ class Worker:
         while not connected:
             try:
                 print('Trying to connect...')
-                workerSocket.connect(('localhost', 8002))
+                workerSocket.connect((Network.HOST, 8002))
                 print('Connected')
                 connected = True
             except socket.error:
@@ -30,11 +30,11 @@ class Worker:
                         
     def poll(self, workerSocket, logSocket):
         self.log(logSocket, 'Polling job')
-        workerSocket.send('POLL job'.encode())
+        workerSocket.send((Event.POLL + ' job').encode())
         data = workerSocket.recv(1024) # Get stuck here
         if data:
             result = data.decode()
-            if result == 'NOT_FOUND':
+            if result == Event.NOT_FOUND:
                 self.onJobNotFound()
             else:
                 self.onJobPolled(workerSocket, logSocket, result)
@@ -51,21 +51,21 @@ class Worker:
         for w in self.words(result, id):
             time.sleep(0.25)
             print(w)
-            logSocket.sendto(w.encode(), ('localhost', 3000))
+            logSocket.sendto(w.encode(), (Network.HOST, 3000))
         self.onJobDone(workerSocket, logSocket, id)
 
     def onJobDone(self, workerSocket, logSocket, id):
-        workerSocket.send(('DONE ' + id).encode())
+        workerSocket.send((Event.DONE + Delimiter.SPACE + id).encode())
         self.log(logSocket, 'Completed job ' + id)
 
     def words(self, result, id):
-        return result.replace(id + ' ', '').split(' ')
+        return result.replace(id + Delimiter.SPACE, Delimiter.EMPTY).split(Delimiter.SPACE)
 
     def jobId(self, result):
-        return result.split(' ')[0]           
+        return result.split(Delimiter.SPACE)[0]           
     
     def log(self, socket, log):
-        socket.sendto(log.encode(), ('localhost', 12345))
+        socket.sendto(log.encode(), (Network.HOST, Network.SYSLOG))
         print(log)
                     
 Worker().run()

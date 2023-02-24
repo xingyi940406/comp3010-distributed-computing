@@ -1,7 +1,7 @@
 import socket
 import select
 import sys
-from contants import Delimiter, Status, Event, Connection, Decoding
+from contants import Delimiter, Status, Event, Network, Decoding
     
 class Broker:
     class Job:   
@@ -15,9 +15,9 @@ class Broker:
         
     def __init__(
         self, 
-        clientPort = Connection.CLIENT_PORT, 
-        workerPort = Connection.WORKER_PORT, 
-        host = Connection.HOST
+        clientPort = Network.CLIENT_PORT, 
+        workerPort = Network.WORKER_PORT, 
+        host = Network.HOST
     ): 
         self.clientPort = clientPort
         self.workerPort = workerPort
@@ -53,9 +53,9 @@ class Broker:
                     elif r is workerSocket:
                         self.readOn(r, workers)
                     elif r in clients:
-                        self.onClientObserved(r, clients)
+                        self.onObserveClient(r, clients)
                     elif r in workers:
-                        self.onWorkerObserved(r, workers)
+                        self.onObserveWorker(r, workers)
                     else:
                         print('Shit')
             except socket.timeout as e:
@@ -65,32 +65,32 @@ class Broker:
             except Exception as e:
                 print(e)
                 
-    def onClientObserved(self, socket, clients):
+    def onObserveClient(self, socket, clients):
         data = socket.recv(1024)
         if len(data) == 0:
             clients.remove(socket)
         elif data:
-            self.onClientEventObserved(socket, data.decode(Decoding.UTF_8, 'ignore'))
+            self.onObserveClientEvent(socket, data.decode(Decoding.UTF_8, 'ignore'))
             
-    def onWorkerObserved(self, socket, workers):
+    def onObserveWorker(self, socket, workers):
         data = socket.recv(1024)
         if len(data) == 0:
             workers.remove(socket)
         elif data:
-            self.onWorkerEventObserved(socket, data.decode(Decoding.UTF_8, 'ignore'))
+            self.onObserveWorkerEvent(socket, data.decode(Decoding.UTF_8, 'ignore'))
      
-    def onClientEventObserved(self, socket, event):
-        type = self.getEventType(event)
-        if type == Event.STATUS:
+    def onObserveClientEvent(self, socket, event):
+        e = self.event(event)
+        if e == Event.STATUS:
             self.sendJobStatus(socket, event)
         else:
             self.enqueueJobs(socket, event)
             
-    def onWorkerEventObserved(self, socket, event):
-        type = self.getEventType(event)
-        if type == Event.POLL:
+    def onObserveWorkerEvent(self, socket, event):
+        e = self.event(event)
+        if e == Event.POLL:
             self.onJobPolling(socket)
-        elif type == Event.DONE:
+        elif e == Event.DONE:
             self.onJobDone(event)
         else:
             print('Fuck')
@@ -120,13 +120,13 @@ class Broker:
         return None
       
     def enqueueJobs(self, socket, event):
-        for u in self.getUnitsOfWork(event):
+        for u in self.unitsOfWork(event):
             if len(u) > 0:
                 id = str(self.size())
                 self.queue.append(Broker.Job(id, u))
                 socket.sendall((id + Delimiter.NEW_LINE).encode())
 
-    def getUnitsOfWork(self, event):
+    def unitsOfWork(self, event):
         unitsOfWorks = event.split(Delimiter.JOB)
         unitsOfWorks[-1] = unitsOfWorks[-1].split(Delimiter.RETURN + Delimiter.NEW_LINE)[0]
         return unitsOfWorks
@@ -144,7 +144,7 @@ class Broker:
     def outOfBounds(self, id):
         return id < 0 or id >= self.size()
     
-    def getEventType(self, event):
+    def event(self, event):
         return event.split(Delimiter.SPACE)[0]
     
     def size(self):
