@@ -1,6 +1,7 @@
 import socket
 import select
 import sys
+import time
 from contants import Delimiter, Status, Event, Network, Decoding
     
 class Broker:
@@ -103,12 +104,21 @@ class Broker:
 
     # TODO - Issues to 1 worker only
     def onJobPolling(self, socket):
-        result = Event.NOT_FOUND
         job = self.getPendingJob()
         if job:
-            result = job.toString()
-            job.status = Status.IN_PROGRESS 
-        socket.sendall(result.encode())
+            sent = False
+            while not sent:
+                try:
+                    time.sleep(5)
+                    socket.sendall(job.toString().encode())
+                    job.status = Status.IN_PROGRESS
+                    sent = True
+                    print('SENT JOB') # TODO - Ask about this bug
+                except socket.error:
+                    print('Resend job after 1 sec')
+                    time.sleep(1)
+        else:
+            socket.sendall(Event.NOT_FOUND.encode())
           
     def getPendingJob(self):
         i = 0
