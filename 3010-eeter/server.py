@@ -15,8 +15,8 @@ class Repo:
     def byId(self, id):
         self.ensureRecordsFresh()
         i = self.at(id)
-        return self.records[i] if i != -1 else None
-    
+        return self.records[i] if self.valid(i) else None
+
     def post(self, o):
         id = o['id']
         if self.byId(id):
@@ -27,14 +27,13 @@ class Repo:
     
     def put(self, id, o):
         i = self.at(id)
-        print(i)
-        if (i != -1):
+        if (self.valid(i)):
             self.records[i] = o
             self.save()
     
     def delete(self, id):
         i = self.at(id)
-        if (i != -1):
+        if (self.valid(i)):
             del self.records[i]
             self.save()
             
@@ -51,6 +50,9 @@ class Repo:
     def ensureRecordsFresh(self):
         if self.dirty:
             self.records = self.load()
+            
+    def valid(self, i):
+        return i != -1
             
     def load(self):
         try:
@@ -86,42 +88,6 @@ class RESTful:
     
     def delete(self, id: int):
         self.repo.delete(id)
-
-class Server:
-    
-    def __init__(self, port = 8080, host = 'localhost'):
-        self.port = port
-        self.host = host
-    
-    def start(self):
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-            self.config(s)
-            self.run(s)
-            
-    def config(self, s):
-        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        s.bind((self.host, self.port))
-        s.listen()
-        self.endpointsForTesting()
-
-    def endpointsForTesting(self):
-        print('http://localhost:8080/tweets')
-        print('http://localhost:8080/tweets/1')
-        
-    def run(self, socket):
-        while True:
-            conn, addr = socket.accept()
-            print(f'Connected to {addr}')
-            t = threading.Thread(target=self.onObserve, args=(conn,))
-            t.start()
-
-    def onObserve(self, client):
-        req = client.recv(1024).decode()
-        path = req.split('\n')[0].split()[1]
-        if '/tweets' in path:
-            API.of(req).invoke()
-        else:
-            print('Fuck path')
 
 class API:
     def __init__(self, method, path, body):
@@ -192,19 +158,37 @@ class API:
     
     def splitPath(self):
         return self.path.split('/')
+    
+class Server:
+    
+    def __init__(self, port = 8080, host = 'localhost'):
+        self.port = port
+        self.host = host
+    
+    def start(self):
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            self.config(s)
+            self.run(s)
+            
+    def config(self, s):
+        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        s.bind((self.host, self.port))
+        s.listen()
+        
+    def run(self, socket):
+        while True:
+            conn, addr = socket.accept()
+            print(f'Connected to {addr}')
+            t = threading.Thread(target=self.onObserve, args=(conn,))
+            t.start()
 
-def restfulCrudTests():
-    restful = RESTful(Repo())
-    print(restful.all())
-    print(restful.byId(1))
-    restful.delete(1)
-    print(restful.all())
-    o = { "id": 10, "content": "Good day" }
-    restful.post(o)
-    print(restful.all())
-    o = { "id": 1, "content": "Good morning" }
-    restful.post(o)
-    print(restful.all())
+    def onObserve(self, client):
+        req = client.recv(1024).decode()
+        path = req.split('\n')[0].split()[1]
+        if '/tweets' in path:
+            API.of(req).invoke()
+        else:
+            print('Fuck path')
     
 if __name__ == '__main__':
     Server().start()
