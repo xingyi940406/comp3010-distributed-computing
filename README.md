@@ -1,5 +1,5 @@
 # COMP 3010 Distributed Computing
-### Message Queue
+### 3010MQ
 ![](./doc/A1.png)
 _Producer_ 
 - Sends jobs to the broker and gets a job ID as a response for each job successfully stored
