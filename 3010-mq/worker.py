@@ -40,7 +40,7 @@ class Worker:
     def poll(self, workerSocket, logSocket):
         self.log(logSocket, 'Polling job')
         workerSocket.send((Event.POLL + ' job').encode())
-        data = workerSocket.recv(1024) # Get stuck here
+        data = workerSocket.recv(1024)
         if data:
             result = data.decode()
             if result == Event.NOT_FOUND:
@@ -48,7 +48,7 @@ class Worker:
             else:
                 self.onJobPolled(workerSocket, logSocket, result)
         else:
-            print('Shit')
+            print('No data received')
 
     def onJobNotFound(self):
         print('Job not found')

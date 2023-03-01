@@ -57,7 +57,7 @@ class Broker:
                     elif r in workers:
                         self.onObserveWorker(r, workers)
                     else:
-                        print('Shit')
+                        print('Readable does not exist')
             except socket.timeout as e:
                 print('Time out')
             except KeyboardInterrupt as e:
@@ -82,7 +82,6 @@ class Broker:
     def onObserveClientEvent(self, socket, event):
         e = self.event(event)
         if e == Event.STATUS:
-            print('Getting status')
             self.sendJobStatus(socket, event)
         else:
             self.enqueueJobs(socket, event)
@@ -94,7 +93,7 @@ class Broker:
         elif e == Event.DONE:
             self.onJobDone(event)
         else:
-            print('Fuck')
+            print('Event does not exist')
 
     def onJobDone(self, event):
         id = int(event.split(Event.DONE + Delimiter.SPACE)[1])
