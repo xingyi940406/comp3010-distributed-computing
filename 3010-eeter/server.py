@@ -66,7 +66,7 @@ class Repo:
     def save(self):
         self.sort()
         with open('tweets.json', 'w') as f:
-            json.dump(self.records, f)
+            json.dump(self.records, f, indent=4)
         self.dirty = True
 
 class RESTful:
@@ -90,17 +90,32 @@ class RESTful:
         self.repo.delete(id)
 
 class API:
-    def __init__(self, method, path, body):
+    
+    def __init__(self, socket, method, path, body):
+        self.socket = socket
         self.method = method
         self.path = path
         self.body = body
         self.restful = RESTful(Repo()) # TODO: refactor to DI
 
-    def of(request):
+    def of(socket, request):
         method, path, v = request.split('\n')[0].split()
         body = request.split('\r\n\r\n')[1]
-        return API(method, path, body)
-
+        return API(socket, method, path, body)
+    
+    def ui(self):
+        try:
+            with open('index.html', 'r') as f:
+                ui = f.read()
+            res = f'HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n\r\n{ui}'
+            self.socket.send(res.encode())
+        except FileNotFoundError:
+            print("The file was not found.")
+        except IOError:
+            print("An I/O error occurred while reading the file.")
+        except Exception as e:
+            print("An error occurred:", e)
+        
     def invoke(self):
         if self.method == 'GET':
             self.usingIdOr(lambda: self.byId(), lambda: self.all())
@@ -135,7 +150,10 @@ class API:
         print(self.restful.all())
 
     def all(self):
-        print(self.restful.all())
+        all = self.restful.all()
+        print(all)
+        res = self.ok(self.jsonify(all))
+        self.socket.send(res.encode())
 
     def byId(self):
         print(self.restful.byId(self.stripId()))
@@ -159,6 +177,12 @@ class API:
     def splitPath(self):
         return self.path.split('/')
     
+    def jsonify(self, all):
+        return json.dumps(all)
+
+    def ok(self, json):
+        return f'HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n\r\n{json}'
+    
 class Server:
     
     def __init__(self, port = 8080, host = 'localhost'):
@@ -166,6 +190,8 @@ class Server:
         self.host = host
     
     def start(self):
+        print('http://localhost:8080/')
+        print('http://localhost:8080/tweets')
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             self.config(s)
             self.run(s)
@@ -185,8 +211,11 @@ class Server:
     def onObserve(self, client):
         req = client.recv(1024).decode()
         path = req.split('\n')[0].split()[1]
-        if '/tweets' in path:
-            API.of(req).invoke()
+        print('Path', path)
+        if '/' == path:
+            API.of(client, req).ui()
+        elif '/tweets' in path:
+            API.of(client, req).invoke()
         else:
             print('Fuck path')
     
