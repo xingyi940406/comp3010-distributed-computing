@@ -2,7 +2,7 @@
 #### Run 3010MQ
 1. Run server
 
-    Option 1: python server.py 
+    Option 1: ```python server.py```
     
     Option 2: python server.py <_client port_> <_worker port_>
     
