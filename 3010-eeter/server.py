@@ -9,31 +9,31 @@ class Repo:
         self.records = self.load()
     
     def all(self):
-        self.refresh()
+        self.ensureRecordsFresh()
         return self.records
     
-    def at(self, id):
-        self.refresh()
-        i = self.i(id)
+    def byId(self, id):
+        self.ensureRecordsFresh()
+        i = self.at(id)
         return self.records[i] if i != -1 else None
     
     def post(self, o):
         id = o['id']
-        if self.at(id):
+        if self.byId(id):
             self.put(id, o)
         else:
             self.records.append(o)
             self.save()
     
     def put(self, id, o):
-        i = self.i(id)
+        i = self.at(id)
         print(i)
         if (i != -1):
             self.records[i] = o
             self.save()
     
     def delete(self, id):
-        i = self.i(id)
+        i = self.at(id)
         if (i != -1):
             del self.records[i]
             self.save()
@@ -41,14 +41,14 @@ class Repo:
     def sort(self):
         self.records = sorted(self.records, key = lambda o: o['id'])
 
-    def i(self, id: int):
+    def at(self, id: int):
         for i, o in enumerate(self.records):
             print(id, o['id'], o['id'] == id)
             if (o['id'] == id):
                 return i
         return -1
     
-    def refresh(self):
+    def ensureRecordsFresh(self):
         if self.dirty:
             self.records = self.load()
             
@@ -75,7 +75,7 @@ class RESTful:
     def all(self):
         return self.repo.all()
     
-    def at(self, id: int):
+    def byId(self, id: int):
         return self.repo.at(id)
     
     def post(self, o):
@@ -137,13 +137,13 @@ class API:
 
     def invoke(self):
         if self.method == 'GET':
-            self.useIdOr(lambda: self.byId(), lambda: self.all())
+            self.usingIdOr(lambda: self.byId(), lambda: self.all())
         elif self.method == 'POST':
             self.post()
         elif self.method == 'PUT':
-            self.useId(lambda: self.put())
+            self.usingId(lambda: self.put())
         elif self.method == 'DELETE':
-            self.useId(lambda: self.delete())
+            self.usingId(lambda: self.delete())
         else:
             print('Fuck method')
 
@@ -172,13 +172,13 @@ class API:
         print(self.restful.all())
 
     def byId(self):
-        print(self.restful.at(self.stripId()))
+        print(self.restful.byId(self.stripId()))
         
-    def useId(self, f):
+    def usingId(self, f):
         if self.idInPath():
             f()
     
-    def useIdOr(self, x, y):
+    def usingIdOr(self, x, y):
         if self.idInPath():
             x()
         else:
@@ -196,7 +196,7 @@ class API:
 def restfulCrudTests():
     restful = RESTful(Repo())
     print(restful.all())
-    print(restful.at(1))
+    print(restful.byId(1))
     restful.delete(1)
     print(restful.all())
     o = { "id": 10, "content": "Good day" }
