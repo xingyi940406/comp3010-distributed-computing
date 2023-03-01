@@ -1,0 +1,9 @@
+
+
+RESTful -> all() | at(id)
+        -> post(body)
+        -> put(body, id)
+        -> delete(id)
+
+path    -> /tweets  -> all() | post()
+        -> /tweets/{id} -> at() | put(id) | delete()
