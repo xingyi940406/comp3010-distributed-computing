@@ -1,11 +1,20 @@
-from contants import Event, Network, Delimiter
+import sys
+from contants import Event, Port, Delimiter
 import socket
 import time
 
 class Worker:
-    def __init__(self):
-        self.inProgress = False
-    
+    def __init__(self, 
+        workerPort = Port.WORKER, 
+        outputsPort = Port.OUTPUTS, 
+        logsPort = Port.SYSLOG, 
+        host = Port.HOST
+    ):
+        self.workerPort = workerPort
+        self.logsPort = logsPort
+        self.outputsPort = outputsPort
+        self.host = host
+        
     def run(self):
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as workerSocket, socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as logSocket:
             self.connectOrRetry(workerSocket)
@@ -21,7 +30,7 @@ class Worker:
         while not connected:
             try:
                 print('Trying to connect...')
-                workerSocket.connect((Network.HOST, 8002))
+                workerSocket.connect((self.host, self.workerPort))
                 print('Connected')
                 connected = True
             except socket.error:
@@ -51,7 +60,7 @@ class Worker:
         for w in self.words(result, id):
             time.sleep(0.25)
             print(w)
-            logSocket.sendto(w.encode(), (Network.HOST, 3000))
+            logSocket.sendto(w.encode(), (self.host, self.outputsPort))
         self.onJobDone(workerSocket, logSocket, id)
 
     def onJobDone(self, workerSocket, logSocket, id):
@@ -65,7 +74,17 @@ class Worker:
         return result.split(Delimiter.SPACE)[0]           
     
     def log(self, socket, log):
-        socket.sendto(log.encode(), (Network.HOST, Network.SYSLOG))
+        socket.sendto(log.encode(), (self.host, self.logsPort))
         print(log)
-                    
-Worker().run()
+
+def main():
+    args = sys.argv
+    if len(args) == 4:
+        brokerIpAndPort = args[1]
+        arr = brokerIpAndPort.split(':')
+        Worker(workerPort=int(arr[1]), outputsPort=int(args[2]), logsPort=int(args[3]), host=arr[0]).run()
+    else:
+        Worker().run()
+
+if __name__ == "__main__":
+    main()

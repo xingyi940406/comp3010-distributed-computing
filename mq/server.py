@@ -1,8 +1,7 @@
 import socket
 import select
 import sys
-import time
-from contants import Delimiter, Status, Event, Network, Decoding
+from contants import Delimiter, Status, Event, Port, Decoding
     
 class Broker:
     class Job:   
@@ -16,9 +15,9 @@ class Broker:
         
     def __init__(
         self, 
-        clientPort = Network.CLIENT_PORT, 
-        workerPort = Network.WORKER_PORT, 
-        host = Network.HOST
+        clientPort = Port.CLIENT, 
+        workerPort = Port.WORKER, 
+        host = Port.HOST
     ): 
         self.clientPort = clientPort
         self.workerPort = workerPort
@@ -83,6 +82,7 @@ class Broker:
     def onObserveClientEvent(self, socket, event):
         e = self.event(event)
         if e == Event.STATUS:
+            print('Getting status')
             self.sendJobStatus(socket, event)
         else:
             self.enqueueJobs(socket, event)
@@ -102,21 +102,11 @@ class Broker:
         job.status = Status.DONE
         print('Job', str(id), 'is done')
 
-    # TODO - Issues to 1 worker only
     def onJobPolling(self, socket):
         job = self.getPendingJob()
         if job:
-            sent = False
-            while not sent:
-                try:
-                    time.sleep(5)
-                    socket.sendall(job.toString().encode())
-                    job.status = Status.IN_PROGRESS
-                    sent = True
-                    print('SENT JOB') # TODO - Ask about this bug
-                except socket.error:
-                    print('Resend job after 1 sec')
-                    time.sleep(1)
+            socket.sendall(job.toString().encode())
+            job.status = Status.IN_PROGRESS
         else:
             socket.sendall(Event.NOT_FOUND.encode())
           
@@ -144,7 +134,7 @@ class Broker:
     def sendJobStatus(self, socket, event):
         id = int(event.split(Delimiter.SPACE)[1])
         job = self.jobById(id)
-        result = 'Job with ID ' + id
+        result = 'Job with ID ' + str(id)
         result += ' has status of ' + job.status if job else ' is not found'
         socket.sendall(result.encode())
     
@@ -166,7 +156,14 @@ class Broker:
         registry.append(conn)
 
 def main():
-    Broker().run()
+    args = sys.argv
+    print(args)
+    if len(args) == 4:
+        Broker(clientPort=int(args[1]), workerPort=int(args[2]), host=args[3]).run()
+    elif len(args) == 3:
+        Broker(clientPort=int(args[1]), workerPort=int(args[2])).run()
+    else:
+        Broker().run()
 
 if __name__ == "__main__":
     main()
