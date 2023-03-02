@@ -117,9 +117,9 @@ class Signin:
         self.restful = RESTful(Repo('users.json'))
         self.cookies = RESTful(Repo('cookies.json'))
 
-    def of(socket, request):
-        method, path, v = request.split('\n')[0].split()
-        body = request.split('\r\n\r\n')[1]
+    def of(socket, req):
+        method, path, v = req.split('\n')[0].split()
+        body = req.split('\r\n\r\n')[1]
         return Signin(socket, method, path, body)
     
     def invoke(self):
@@ -143,10 +143,34 @@ class Signin:
         return user['username'] == username and user['password'] == password
 
     def credentials(self):
-        print(self.body)
         user = json.loads(self.body)
         return (user['username'], user['password'])
+  
+class Signout:
+    
+    def __init__(self, socket, method, path, body):
+        self.socket = socket
+        self.method = method
+        self.path = path
+        self.body = body
+        self.restful = RESTful(Repo('users.json'))
+        self.cookies = RESTful(Repo('cookies.json'))
+    
+    def of(socket, req):
+        method, path, v = req.split('\n')[0].split()
+        body = req.split('\r\n\r\n')[1]
+        return Signout(socket, method, path, body)
         
+    def invoke(self):
+        user = json.loads(self.body)['user']
+        for c in self.cookies.all():
+            if (c['user'] == user):
+                self.cookies.delete(c['id'])
+        return self.socket.sendall(self.ok().encode())
+    
+    def ok(self):
+        return f'HTTP/1.1 200 OK\nContent-Type: application/json\r\n\r\n'
+      
 class Dashboard:
     
     def __init__(self, socket, method, path, body):
@@ -156,9 +180,9 @@ class Dashboard:
         self.body = body
         self.restful = RESTful(Repo('posts.json'))
 
-    def of(socket, request):
-        method, path, v = request.split('\n')[0].split()
-        body = request.split('\r\n\r\n')[1]
+    def of(socket, req):
+        method, path, v = req.split('\n')[0].split()
+        body = req.split('\r\n\r\n')[1]
         return Dashboard(socket, method, path, body)
         
     def invoke(self):
@@ -250,6 +274,8 @@ class Server:
             UI(socket).mount()
         elif '/login' == path:
             Signin.of(socket, req).invoke()
+        elif '/logout' == path:
+            Signout.of(socket, req).invoke()
         elif '/tweets' in path:
             Dashboard.of(socket, req).invoke()
         else:

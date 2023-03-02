@@ -14,14 +14,38 @@
     <button id="posts" type="button" onclick="onView()">View Dashboard</button>
     <ul id="dashboard"></ul>
     <script>
-        if (user()) {
-            shit()
-        }
+        if (user()) readyForSignout()
 
-        function shit() {
+        function readyForSignout() {
             const btn = document.getElementById('signin')
             btn.innerText = 'Sign Out'
-            btn.addEventListener('click', () => {})
+            btn.addEventListener('click', onSignout)
+        }
+
+        function clearInputs() {
+            document.getElementById('username').value = '';
+            document.getElementById('password').value = '';
+        }          
+
+        function onSignout() {
+            const req = new XMLHttpRequest()
+            req.addEventListener('load', function() {
+                let cookies = document.cookie.split(';')
+                for (let i = 0; i < cookies.length; i++) {
+                    document.cookie = cookies[i] + "=; expires="+ new Date(0).toUTCString();
+                }
+
+                const btn = document.getElementById('signin')
+                btn.innerText = 'Sign in'
+                btn.addEventListener('click', onSignin)
+
+                document.getElementById('dashboard').innerHTML = ''
+            })
+            req.open('POST', 'http://localhost:8080/logout')
+            req.setRequestHeader('Content-Type', 'application/json')
+            req.send(JSON.stringify({
+                'user': user()
+            }))
         }
 
         function user() {
@@ -74,8 +98,11 @@
         function onSignin() {
             const req = new XMLHttpRequest()
             req.addEventListener('load', function() {
-                shit()
-                renderPosts()
+                clearInputs()
+                if (req.status == 200) {
+                    readyForSignout()
+                    renderPosts()
+                }
             })
             req.open('POST', 'http://localhost:8080/login')
             req.setRequestHeader('Content-Type', 'application/json')

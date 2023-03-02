@@ -1,10 +1,5 @@
 [
     {
-        "id": 1,
-        "content": "Good afternoon",
-        "author": "admin"
-    },
-    {
         "id": 3,
         "content": "Good afternoon",
         "author": "david"
