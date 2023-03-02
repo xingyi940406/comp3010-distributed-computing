@@ -13,21 +13,21 @@
     </div>
     <h2>Tweets</h2>
     <ul id="dashboard"></ul>
-    <button id="shit" onclick="shit()">Shit</button>
+    <button type="button" onclick="onSignin()">Click</button>
     <script>
-        const shit = () => {
-            document.getElementById('shit').addEventListener('click', () => 
-                fetch('http://localhost:8080/tweets')
-                    .then(r => r.json())
-                    .then(o => {
-                        if (o['id'] > 2) {
-                            const li = document.createElement('li')
-                            li.innerText = o['content']
-                            document.getElementById('dashboard').appendChild(li)
-                            console.log(li.innerText)
-                        }
-                    })
-            )
+        function onSignin() {
+            const req = new XMLHttpRequest()
+            req.addEventListener('load', function() {
+                JSON.parse(req.responseText).forEach(o => {
+                    const li = document.createElement('li')
+                    li.innerText = o['content']
+                    document.getElementById('dashboard').appendChild(li)
+                })
+            })
+            req.open('GET', 'http://localhost:8080/tweets')
+            req.setRequestHeader("Accept","application/json");
+            req.withCredentials = true;
+            req.send();
         }
     </script>
 </body>
