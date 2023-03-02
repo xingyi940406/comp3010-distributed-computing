@@ -8,48 +8,62 @@
     <div>
         <input id="username" type="text" placeholder="username" />
         <input id="password" type="password" placeholder="password" />
+        <button id="signin" type="button" onclick="onSignin()">Sign In</button>
     </div>
-    <button id="signin" type="button" onclick="onSignin()">Sign In</button>
-    <h2>Tweets</h2>
+    <br>
+    <button id="posts" type="button" onclick="onView()">View Dashboard</button>
     <ul id="dashboard"></ul>
     <script>
-        function onSignin () {
-            let { username } =  credentials();
+        if (user())
+            document.getElementById('signin').disabled = true
+
+        function user() {
+            for (let c of document.cookie.split(';'))
+                if (c.trim().startsWith('user=')) return c.split('=')[1]
+            return null
+        }
+
+        function onView() {
+            if (user()) renderPosts(user)
+            else alert('Fuck off')
+        }
+
+        function renderPosts() {
+            const req = new XMLHttpRequest()
+            req.addEventListener('load', function() {
+                alert('Posts fetched')
+                JSON.parse(req.responseText).forEach(post => {
+                    const btn = document.createElement('button')
+                    btn.innerText = 'x'
+                    btn.addEventListener('click', function() {
+                        const xhr = new XMLHttpRequest()
+                        xhr.addEventListener('load', function() {
+                            alert('Deleted')
+                        })
+                        xhr.open('DELETE', `http://localhost:8080/tweets/${post['id']}`)
+                        xhr.setRequestHeader('Content-Type', 'application/json')  
+                        xhr.send()           
+                    })
+
+                    const li = document.createElement('li')
+                    li.innerText = post['content'] + ' '
+                    if (post['author'] === user()) li.appendChild(btn)
+                    document.getElementById('dashboard').appendChild(li)
+                })
+            })
+            req.open('GET', 'http://localhost:8080/tweets')
+            req.setRequestHeader("Accept","application/json")
+            req.withCredentials = true
+            req.send()
+        }
+
+        function onSignin() {
             const req = new XMLHttpRequest()
             req.addEventListener('load', function() {
                 alert('Signed in')
                 document.getElementById('signin').innerText = 'Sign Out'
                 document.getElementById('signin').addEventListener('click', onSignout)
-
-                const sub = new XMLHttpRequest()
-                sub.addEventListener('load', function() {
-                    JSON.parse(sub.responseText).forEach(o => {
-                        const li = document.createElement('li')
-                        const btn = document.createElement('button')
-
-                        btn.innerText = 'X'
-                        btn.addEventListener('click', function() {
-                            alert('Deleting post')
-                            const xhr = new XMLHttpRequest()
-                            xhr.addEventListener('load', function() {
-                                alert('Deleted')
-                            })
-                            xhr.open('DELETE', `http://localhost:8080/tweets/${o['id']}`)
-                            xhr.setRequestHeader('Content-Type', 'application/json')  
-                            xhr.send()           
-                        })
-
-                        if (o['author'] === username) {
-                            li.innerText = o['content']
-                            li.appendChild(btn)
-                            document.getElementById('dashboard').appendChild(li)
-                        }
-                    })
-                })
-                sub.open('GET', 'http://localhost:8080/tweets')
-                sub.setRequestHeader("Accept","application/json")
-                sub.withCredentials = true
-                sub.send()
+                renderPosts()
             })
             req.open('POST', 'http://localhost:8080/login')
             req.setRequestHeader('Content-Type', 'application/json')
