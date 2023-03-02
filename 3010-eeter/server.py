@@ -149,6 +149,7 @@ class Signin:
         return (user['username'], user['password'])
         
 class Dashboard:
+    
     def __init__(self, socket, method, path, body):
         self.socket = socket
         self.method = method
@@ -163,7 +164,7 @@ class Dashboard:
         
     def invoke(self):
         if self.method == 'GET':
-            self.atIdOr(lambda: self.byId(), lambda: self.all())
+            self.atIdOrElse(lambda: self.byId(), lambda: self.all())
         elif self.method == 'POST':
             self.post()
         elif self.method == 'PUT':
@@ -173,49 +174,44 @@ class Dashboard:
         else:
             print('Fuck method')
             
-    def jsonify(self, o):
-        return json.dumps(o)
-
     def all(self):
-        all = self.restful.all()
-        body = self.jsonify(all)
-        ok = self.ok(body)
-        print(ok)
-        self.socket.send(ok.encode())
+        self.reply(self.restful.all())
         
     def byId(self):
-        print(self.restful.byId(self.stripId()))
+        self.reply(self.restful.byId(self.stripId()))
 
     def delete(self):
         self.restful.delete(self.stripId())
-        print(self.restful.all())
 
     def put(self):
         id = self.stripId()
         o = json.loads(self.body)
-        print(id, o)
         if o['id'] == id:
             self.restful.put(id, o)
         else:
             print('Url param does not match id in body')
-        print(self.restful.all())
 
     def post(self):
-        print('POSTing')
-        o = json.loads(self.body)
-        print(o)
-        self.restful.post(o)
-        print(self.restful.all())
+        self.restful.post(json.loads(self.body))
+        
+    def reply(self, o):
+        self.socket.send(self.ok(self.jsonify(o)).encode())
+        
+    def jsonify(self, o):
+        return json.dumps(o)
+
+    def ok(self, body):
+        return f'HTTP/1.1 200 OK\nContent-Type: application/json\r\n\n{body}'
         
     def atId(self, f):
         if self.idInPath():
             f()
     
-    def atIdOr(self, x, y):
+    def atIdOrElse(self, f, orElse):
         if self.idInPath():
-            x()
+            f()
         else:
-            y()
+            orElse()
             
     def idInPath(self):
         return len(self.splitPath()) == 3
@@ -226,9 +222,6 @@ class Dashboard:
     def splitPath(self):
         return self.path.split('/')
 
-    def ok(self, body):
-        return f'HTTP/1.1 200 OK\nContent-Type: application/json\r\n\n{body}'
-
 class Server:
     
     def __init__(self, port = 8080, host = 'localhost'):
@@ -237,22 +230,18 @@ class Server:
     
     def start(self):
         print('http://localhost:8080/')
-        print('http://localhost:8080/tweets')
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             self.config(s)
-            self.run(s)
-            
+            while True:
+                conn, addr = s.accept()
+                print(f'Connected to {addr}')
+                t = threading.Thread(target=self.onObserve, args=(conn,))
+                t.start()
+        
     def config(self, s):
         s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         s.bind((self.host, self.port))
         s.listen()
-        
-    def run(self, socket):
-        while True:
-            conn, addr = socket.accept()
-            print(f'Connected to {addr}')
-            t = threading.Thread(target=self.onObserve, args=(conn,))
-            t.start()
 
     def onObserve(self, socket):
         req = socket.recv(1024).decode()
