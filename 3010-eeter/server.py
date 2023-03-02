@@ -4,7 +4,8 @@ import threading
 
 class Repo:
     
-    def __init__(self):
+    def __init__(self, db):
+        self.db = db
         self.dirty = False
         self.records = self.load()
     
@@ -56,7 +57,7 @@ class Repo:
             
     def load(self):
         try:
-            with open('tweets.json', 'r') as f:
+            with open(self.db, 'r') as f:
                 result = json.load(f)
             self.dirty = False
         except (FileNotFoundError, json.JSONDecodeError):
@@ -65,13 +66,13 @@ class Repo:
     
     def save(self):
         self.sort()
-        with open('tweets.json', 'w') as f:
+        with open(self.db, 'w') as f:
             json.dump(self.records, f, indent=4)
         self.dirty = True
 
 class RESTful:
     
-    def __init__(self, repo):
+    def __init__(self, repo: Repo):
         self.repo = repo
     
     def all(self):
@@ -88,45 +89,101 @@ class RESTful:
     
     def delete(self, id: int):
         self.repo.delete(id)
-
-class API:
-    
-    def __init__(self, socket, method, path, body):
+        
+class UI:
+    def __init__(self, socket):
         self.socket = socket
-        self.method = method
-        self.path = path
-        self.body = body
-        self.restful = RESTful(Repo()) # TODO: refactor to DI
-
-    def of(socket, request):
-        method, path, v = request.split('\n')[0].split()
-        body = request.split('\r\n\r\n')[1]
-        return API(socket, method, path, body)
     
-    def ui(self):
+    def mount(self):
         try:
             with open('index.html', 'r') as f:
                 ui = f.read()
             res = f'HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n\r\n{ui}'
             self.socket.send(res.encode())
         except FileNotFoundError:
-            print("The file was not found.")
+            print("File not found")
         except IOError:
-            print("An I/O error occurred while reading the file.")
+            print("IO error")
         except Exception as e:
-            print("An error occurred:", e)
+            print(e)
+
+class Signin:
+    def __init__(self, socket, method, path, body):
+        self.socket = socket
+        self.method = method
+        self.path = path
+        self.body = body
+        self.restful = RESTful(Repo('users.json'))
+        self.cookies = RESTful(Repo('cookies.json'))
+
+    def of(socket, request):
+        method, path, v = request.split('\n')[0].split()
+        body = request.split('\r\n\r\n')[1]
+        return Signin(socket, method, path, body)
+    
+    def invoke(self):
+        u = self.user()
+        if u:
+            username = u['username']
+            cookie = { 'id': 1, 'user': username  }
+            self.cookies.post(cookie)
+            self.socket.sendall(b'HTTP/1.1 200 OK\r\nSet-Cookie: user=' + username.encode() + b'\r\n\r\n')
+            print('Signed in')
+        else:
+            self.socket.sendall(b'HTTP/1.1 401 Unauthorized\r\nContent-Type: text/plain\r\n\r\nFailed to sign in')
+            
+    def user(self):
+        for u in self.restful.all():
+            if (self.credentialsMatched(u)):
+                return u
+        return None
+
+    def credentialsMatched(self, user):
+        username, password = self.credentials()
+        return user['username'] == username and user['password'] == password
+
+    def credentials(self):
+        print(self.body)
+        user = json.loads(self.body)
+        return (user['username'], user['password'])
+        
+class Dashboard:
+    def __init__(self, socket, method, path, body):
+        self.socket = socket
+        self.method = method
+        self.path = path
+        self.body = body
+        self.restful = RESTful(Repo('posts.json'))
+
+    def of(socket, request):
+        method, path, v = request.split('\n')[0].split()
+        body = request.split('\r\n\r\n')[1]
+        return Dashboard(socket, method, path, body)
         
     def invoke(self):
         if self.method == 'GET':
-            self.usingIdOr(lambda: self.byId(), lambda: self.all())
+            self.atIdOr(lambda: self.byId(), lambda: self.all())
         elif self.method == 'POST':
             self.post()
         elif self.method == 'PUT':
-            self.usingId(lambda: self.put())
+            self.atId(lambda: self.put())
         elif self.method == 'DELETE':
-            self.usingId(lambda: self.delete())
+            self.atId(lambda: self.delete())
         else:
             print('Fuck method')
+            
+    def jsonify(self, o):
+        return json.dumps(o)
+
+    def all(self):
+        all = self.restful.all()
+        body = self.jsonify(all)
+        ok = self.ok(body)
+        print(ok)
+        self.socket.send(ok.encode())
+        
+    def byId(self):
+        print(self.restful.byId(self.stripId()))
 
     def delete(self):
         self.restful.delete(self.stripId())
@@ -148,21 +205,12 @@ class API:
         print(o)
         self.restful.post(o)
         print(self.restful.all())
-
-    def all(self):
-        all = self.restful.all()
-        print(all)
-        res = self.ok(self.jsonify(all))
-        self.socket.send(res.encode())
-
-    def byId(self):
-        print(self.restful.byId(self.stripId()))
         
-    def usingId(self, f):
+    def atId(self, f):
         if self.idInPath():
             f()
     
-    def usingIdOr(self, x, y):
+    def atIdOr(self, x, y):
         if self.idInPath():
             x()
         else:
@@ -176,13 +224,10 @@ class API:
     
     def splitPath(self):
         return self.path.split('/')
-    
-    def jsonify(self, all):
-        return json.dumps(all)
 
-    def ok(self, json):
-        return f'HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n\r\n{json}'
-    
+    def ok(self, body):
+        return f'HTTP/1.1 200 OK\nContent-Type: application/json\r\n\n{body}'
+
 class Server:
     
     def __init__(self, port = 8080, host = 'localhost'):
@@ -208,16 +253,17 @@ class Server:
             t = threading.Thread(target=self.onObserve, args=(conn,))
             t.start()
 
-    def onObserve(self, client):
-        req = client.recv(1024).decode()
+    def onObserve(self, socket):
+        req = socket.recv(1024).decode()
         path = req.split('\n')[0].split()[1]
-        print('Path', path)
         if '/' == path:
-            API.of(client, req).ui()
+            UI(socket).mount()
+        elif '/login' == path:
+            Signin.of(socket, req).invoke()
         elif '/tweets' in path:
-            API.of(client, req).invoke()
+            Dashboard.of(socket, req).invoke()
         else:
-            print('Fuck path')
+            print('Fuck path', path)
     
 if __name__ == '__main__':
     Server().start()

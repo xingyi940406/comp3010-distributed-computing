@@ -1,33 +1,53 @@
 <!DOCTYPE html>
 <html>
 <head>
+    
     <title>3010-eeter</title>
 </head>
 <body>
     <h1>Welcome to 3010-eeter</h1>
-    <h2>Log In</h2>
     <div>
         <input id="username" type="text" placeholder="username" />
         <input id="password" type="password" placeholder="password" />
-        <button>Submit</button>
     </div>
+    <button id="signin" type="button" onclick="onSignin()">Sign In</button>
     <h2>Tweets</h2>
     <ul id="dashboard"></ul>
-    <button type="button" onclick="onSignin()">Click</button>
     <script>
-        function onSignin() {
+        function onSignin () {
             const req = new XMLHttpRequest()
             req.addEventListener('load', function() {
-                JSON.parse(req.responseText).forEach(o => {
-                    const li = document.createElement('li')
-                    li.innerText = o['content']
-                    document.getElementById('dashboard').appendChild(li)
+                alert('Signed in')
+                document.getElementById('signin').innerText = 'Sign Out'
+                document.getElementById('signin').addEventListener('click', onSignout)
+
+                const sub = new XMLHttpRequest()
+                sub.addEventListener('load', function() {
+                    JSON.parse(sub.responseText).forEach(o => {
+                        const li = document.createElement('li')
+                        li.innerText = o['content']
+                        document.getElementById('dashboard').appendChild(li)
+                    })
                 })
+                sub.open('GET', 'http://localhost:8080/tweets')
+                sub.setRequestHeader("Accept","application/json")
+                sub.withCredentials = true
+                sub.send()
             })
-            req.open('GET', 'http://localhost:8080/tweets')
-            req.setRequestHeader("Accept","application/json");
-            req.withCredentials = true;
-            req.send();
+            req.open('POST', 'http://localhost:8080/login')
+            req.setRequestHeader('Content-Type', 'application/json')
+            req.send(JSON.stringify(credentials()))
+        
+            function credentials() {
+                return {
+                    username: document.getElementById("username").value,
+                    password: document.getElementById("password").value
+                }
+            }
+
+            function onSignout() {
+                alert('Signing out')
+            }
         }
     </script>
 </body>
