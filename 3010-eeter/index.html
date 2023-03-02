@@ -14,8 +14,15 @@
     <button id="posts" type="button" onclick="onView()">View Dashboard</button>
     <ul id="dashboard"></ul>
     <script>
-        if (user())
-            document.getElementById('signin').disabled = true
+        if (user()) {
+            shit()
+        }
+
+        function shit() {
+            const btn = document.getElementById('signin')
+            btn.innerText = 'Sign Out'
+            btn.addEventListener('click', () => {})
+        }
 
         function user() {
             for (let c of document.cookie.split(';'))
@@ -24,21 +31,28 @@
         }
 
         function onView() {
-            if (user()) renderPosts(user)
-            else alert('Fuck off')
+            if (user()) renderPosts()
+        }
+
+        function clearDashboard() {
+            const dashboard = document.getElementById('dashboard')
+            while (dashboard.firstChild) {
+                dashboard.removeChild(dashboard.firstChild);
+            }
         }
 
         function renderPosts() {
             const req = new XMLHttpRequest()
             req.addEventListener('load', function() {
-                alert('Posts fetched')
+                clearDashboard()
                 JSON.parse(req.responseText).forEach(post => {
                     const btn = document.createElement('button')
                     btn.innerText = 'x'
                     btn.addEventListener('click', function() {
                         const xhr = new XMLHttpRequest()
                         xhr.addEventListener('load', function() {
-                            alert('Deleted')
+                            const refresh = document.getElementById('posts')
+                            refresh.innerText = 'Refresh'
                         })
                         xhr.open('DELETE', `http://localhost:8080/tweets/${post['id']}`)
                         xhr.setRequestHeader('Content-Type', 'application/json')  
@@ -60,9 +74,7 @@
         function onSignin() {
             const req = new XMLHttpRequest()
             req.addEventListener('load', function() {
-                alert('Signed in')
-                document.getElementById('signin').innerText = 'Sign Out'
-                document.getElementById('signin').addEventListener('click', onSignout)
+                shit()
                 renderPosts()
             })
             req.open('POST', 'http://localhost:8080/login')
@@ -75,11 +87,8 @@
                     password: document.getElementById("password").value
                 }
             }
-
-            function onSignout() {
-                alert('Signing out')
-            }
         }
+    
     </script>
 </body>
 </html>

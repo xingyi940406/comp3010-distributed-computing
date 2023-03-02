@@ -129,7 +129,6 @@ class Signin:
             cookie = { 'id': 1, 'user': username  }
             self.cookies.post(cookie)
             self.socket.sendall(b'HTTP/1.1 200 OK\r\nSet-Cookie: user=' + username.encode() + b'\r\n\r\n')
-            print('Signed in')
         else:
             self.socket.sendall(b'HTTP/1.1 401 Unauthorized\r\nContent-Type: text/plain\r\n\r\nFailed to sign in')
             
@@ -182,6 +181,7 @@ class Dashboard:
 
     def delete(self):
         self.restful.delete(self.stripId())
+        self.reply('')
 
     def put(self):
         id = self.stripId()

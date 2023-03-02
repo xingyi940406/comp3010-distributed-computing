@@ -1,7 +1,7 @@
 [
     {
-        "id": 2,
-        "content": "Good evening",
+        "id": 1,
+        "content": "Good afternoon",
         "author": "admin"
     },
     {
@@ -13,15 +13,5 @@
         "id": 10,
         "content": "Nice",
         "author": "david"
-    },
-    {
-        "id": 11,
-        "content": "Nice",
-        "author": "admin"
-    },
-    {
-        "id": 12,
-        "content": "Nice",
-        "author": "admin"
     }
 ]
