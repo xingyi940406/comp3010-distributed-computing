@@ -108,6 +108,7 @@ class UI:
             print(e)
 
 class Signin:
+    
     def __init__(self, socket, method, path, body):
         self.socket = socket
         self.method = method

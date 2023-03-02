@@ -1,7 +1,6 @@
 <!DOCTYPE html>
 <html>
 <head>
-    
     <title>3010-eeter</title>
 </head>
 <body>
@@ -15,6 +14,7 @@
     <ul id="dashboard"></ul>
     <script>
         function onSignin () {
+            let { username } =  credentials();
             const req = new XMLHttpRequest()
             req.addEventListener('load', function() {
                 alert('Signed in')
@@ -25,8 +25,25 @@
                 sub.addEventListener('load', function() {
                     JSON.parse(sub.responseText).forEach(o => {
                         const li = document.createElement('li')
-                        li.innerText = o['content']
-                        document.getElementById('dashboard').appendChild(li)
+                        const btn = document.createElement('button')
+
+                        btn.innerText = 'X'
+                        btn.addEventListener('click', function() {
+                            alert('Deleting post')
+                            const xhr = new XMLHttpRequest()
+                            xhr.addEventListener('load', function() {
+                                alert('Deleted')
+                            })
+                            xhr.open('DELETE', `http://localhost:8080/tweets/${o['id']}`)
+                            xhr.setRequestHeader('Content-Type', 'application/json')  
+                            xhr.send()           
+                        })
+
+                        if (o['author'] === username) {
+                            li.innerText = o['content']
+                            li.appendChild(btn)
+                            document.getElementById('dashboard').appendChild(li)
+                        }
                     })
                 })
                 sub.open('GET', 'http://localhost:8080/tweets')

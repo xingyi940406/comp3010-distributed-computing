@@ -1,1 +1,22 @@
-[{"id": 2, "content": "Good evening"}, {"id": 3, "content": "Good afternoon"}, {"id": 4, "content": "Good night"}, {"id": 10, "content": "Nice"}, {"id": 11, "content": "Hey"}]
+[
+    {
+        "id": 2,
+        "content": "Good evening",
+        "author": "admin"
+    },
+    {
+        "id": 3,
+        "content": "Good afternoon",
+        "author": "david"
+    },
+    {
+        "id": 4,
+        "content": "Good night",
+        "author": "admin"
+    },
+    {
+        "id": 10,
+        "content": "Nice",
+        "author": "david"
+    }
+]
