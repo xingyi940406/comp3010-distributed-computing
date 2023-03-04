@@ -1,12 +1,7 @@
 [
     {
-        "id": 3,
-        "content": "Good afternoon",
-        "author": "david"
-    },
-    {
-        "id": 10,
-        "content": "Nice",
-        "author": "david"
+        "id": 100,
+        "content": "TTT",
+        "author": "admin"
     }
 ]

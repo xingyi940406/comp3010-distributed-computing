@@ -43,7 +43,6 @@ class Repo:
 
     def at(self, id: int):
         for i, o in enumerate(self.records):
-            print(id, o['id'], o['id'] == id)
             if (o['id'] == id):
                 return i
         return -1
@@ -106,7 +105,25 @@ class UI:
             print("IO error")
         except Exception as e:
             print(e)
-
+            
+class Pictures:
+    
+    def __init__(self, socket):
+        self.socket = socket
+    
+    def all(self):
+        try:
+            with open('binary.jpeg', 'rb') as f:
+                img = f.read()
+            res = f'HTTP/1.1 200 OK\r\nContent-Type: image/jpeg\r\n\r\n'
+            self.socket.sendall(res.encode('utf-8') + img)
+        except FileNotFoundError:
+            print("File not found")
+        except IOError:
+            print("IO error")
+        except Exception as e:
+            print(e)
+        
 class Signin:
     
     def __init__(self, socket, method, path, body):
@@ -118,8 +135,7 @@ class Signin:
         self.cookies = RESTful(Repo('cookies.json'))
 
     def of(socket, req):
-        method, path, v = req.split('\n')[0].split()
-        body = req.split('\r\n\r\n')[1]
+        method, path, body, v = HttpRequest.split(req)
         return Signin(socket, method, path, body)
     
     def invoke(self):
@@ -157,8 +173,7 @@ class Signout:
         self.cookies = RESTful(Repo('cookies.json'))
     
     def of(socket, req):
-        method, path, v = req.split('\n')[0].split()
-        body = req.split('\r\n\r\n')[1]
+        method, path, body, v = HttpRequest.split(req)
         return Signout(socket, method, path, body)
         
     def invoke(self):
@@ -171,7 +186,7 @@ class Signout:
     def ok(self):
         return f'HTTP/1.1 200 OK\nContent-Type: application/json\r\n\r\n'
       
-class Dashboard:
+class Posts:
     
     def __init__(self, socket, method, path, body):
         self.socket = socket
@@ -181,9 +196,8 @@ class Dashboard:
         self.restful = RESTful(Repo('posts.json'))
 
     def of(socket, req):
-        method, path, v = req.split('\n')[0].split()
-        body = req.split('\r\n\r\n')[1]
-        return Dashboard(socket, method, path, body)
+        method, path, body, v = HttpRequest.split(req)
+        return Posts(socket, method, path, body)
         
     def invoke(self):
         if self.method == 'GET':
@@ -195,7 +209,7 @@ class Dashboard:
         elif self.method == 'DELETE':
             self.atId(lambda: self.delete())
         else:
-            print('Fuck method')
+            print('Invalid HTTP method')
             
     def all(self):
         self.reply(self.restful.all())
@@ -205,27 +219,29 @@ class Dashboard:
 
     def delete(self):
         self.restful.delete(self.stripId())
-        self.reply('')
+        self.reply('Post deleted')
 
     def put(self):
         id = self.stripId()
         o = json.loads(self.body)
         if o['id'] == id:
             self.restful.put(id, o)
+            self.reply('Post edited')
         else:
-            print('Url param does not match id in body')
+            self.socket.sendall(b'HTTP/1.1 404 Bad Request\r\nContent-Type: text/plain\r\n\r\nUrl param does not match object id in the request body')
 
     def post(self):
         self.restful.post(json.loads(self.body))
+        self.reply('Post added')
         
     def reply(self, o):
-        self.socket.send(self.ok(self.jsonify(o)).encode())
+        self.socket.sendall(self.ok(self.jsonify(o)).encode())
         
     def jsonify(self, o):
         return json.dumps(o)
 
     def ok(self, body):
-        return f'HTTP/1.1 200 OK\nContent-Type: application/json\r\n\n{body}'
+        return f'HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n\n{body}'
         
     def atId(self, f):
         if self.idInPath():
@@ -246,6 +262,13 @@ class Dashboard:
     def splitPath(self):
         return self.path.split('/')
 
+class HttpRequest:
+    
+    def split(req):
+        method, path, v = req.split('\n')[0].split()
+        body = req.split('\r\n\r\n')[1]
+        return (method, path, body, v)
+
 class Server:
     
     def __init__(self, port = 8080, host = 'localhost'):
@@ -260,8 +283,8 @@ class Server:
                 conn, addr = s.accept()
                 print(f'Connected to {addr}')
                 t = threading.Thread(target=self.onObserve, args=(conn,))
-                t.start()
-        
+                t.start() 
+                    
     def config(self, s):
         s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         s.bind((self.host, self.port))
@@ -276,10 +299,12 @@ class Server:
             Signin.of(socket, req).invoke()
         elif '/logout' == path:
             Signout.of(socket, req).invoke()
+        elif '/images' == path:
+            Pictures(socket).all()
         elif '/tweets' in path:
-            Dashboard.of(socket, req).invoke()
+            Posts.of(socket, req).invoke()
         else:
-            print('Fuck path', path)
+            print('Invalid path', path)
     
 if __name__ == '__main__':
     Server().start()

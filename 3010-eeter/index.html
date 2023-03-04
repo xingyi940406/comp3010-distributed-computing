@@ -2,19 +2,66 @@
 <html>
 <head>
     <title>3010-eeter</title>
+    <style>
+        * {
+            font-size: 16px;
+            font-family: 'Ubuntu Mono';
+        }
+
+        .banner {
+            font-size: 48px;
+            color: rgb(11, 94, 218)
+        }
+
+        #posts, #signin {
+            cursor: pointer;
+        }
+    </style>
 </head>
 <body>
-    <h1>Welcome to 3010-eeter</h1>
+    <h1 class='banner'>3010-eeter</h1>
     <div>
         <input id="username" type="text" placeholder="username" />
         <input id="password" type="password" placeholder="password" />
         <button id="signin" type="button" onclick="onSignin()">Sign In</button>
     </div>
     <br>
-    <button id="posts" type="button" onclick="onView()">View Dashboard</button>
+    <button id="posts" type="button" onclick="onView()">See Posts</button>
+    <input id='post' type='text' placeholder='Write your post'>
+    <button id="upload" type="button" onclick="onSave()">Add</button>
     <ul id="dashboard"></ul>
+    <button type="button" onclick="onDisplay()">See Pictures</button>
+    <ul id="pictures" style="visibility:hidden;">
+        <img src="http://localhost:8080/images" height="30%" width="30%" alt="Shit">
+    </ul>
     <script>
         if (user()) readyForSignout()
+
+        function onDisplay() {
+            if (user()){
+                const pics = document.getElementById('pictures')
+                pics.style.visibility = 'visible';
+            }
+        }
+
+        function onSave() {
+            const content = document.getElementById('post').value
+            if (!content?.length) return
+            const post = {
+                'id': 100,
+                'content': content,
+                'author': user()
+            }
+            const req = new XMLHttpRequest()
+            req.addEventListener('load', function() {
+                clearInputs()
+                document.getElementById('posts').innerText = 'Refresh'
+                renderPosts()
+            })
+            req.open('POST', 'http://localhost:8080/tweets')
+            req.setRequestHeader('Content-Type', 'application/json')
+            req.send(JSON.stringify(post))
+        }
 
         function readyForSignout() {
             const btn = document.getElementById('signin')
@@ -23,8 +70,9 @@
         }
 
         function clearInputs() {
-            document.getElementById('username').value = '';
-            document.getElementById('password').value = '';
+            document.getElementById('username').value = ''
+            document.getElementById('password').value = ''
+            document.getElementById('post').value = ''
         }          
 
         function onSignout() {
@@ -55,7 +103,9 @@
         }
 
         function onView() {
-            if (user()) renderPosts()
+            if (user()) {
+                renderPosts()
+            }
         }
 
         function clearDashboard() {
@@ -65,27 +115,32 @@
             }
         }
 
+        function deleteBtn(post) {
+            const btn = document.createElement('button')
+            btn.innerText = 'X'
+            btn.addEventListener('click', function() {
+                const req = new XMLHttpRequest()
+                req.addEventListener('load', function() {
+                    document.getElementById('posts').innerText = 'Refresh'
+                })
+                req.open('DELETE', `http://localhost:8080/tweets/${post['id']}`)
+                req.setRequestHeader('Content-Type', 'application/json')  
+                req.send()           
+            })
+            return btn
+        }
+
         function renderPosts() {
             const req = new XMLHttpRequest()
             req.addEventListener('load', function() {
+                console.log('Render post')
                 clearDashboard()
-                JSON.parse(req.responseText).forEach(post => {
-                    const btn = document.createElement('button')
-                    btn.innerText = 'x'
-                    btn.addEventListener('click', function() {
-                        const xhr = new XMLHttpRequest()
-                        xhr.addEventListener('load', function() {
-                            const refresh = document.getElementById('posts')
-                            refresh.innerText = 'Refresh'
-                        })
-                        xhr.open('DELETE', `http://localhost:8080/tweets/${post['id']}`)
-                        xhr.setRequestHeader('Content-Type', 'application/json')  
-                        xhr.send()           
-                    })
-
+                const posts = JSON.parse(req.responseText)
+                posts.forEach(p => {
                     const li = document.createElement('li')
-                    li.innerText = post['content'] + ' '
-                    if (post['author'] === user()) li.appendChild(btn)
+                    li.innerText = p['content'] + ' '
+                    if (p['author'] === user())
+                        li.appendChild(deleteBtn(p))
                     document.getElementById('dashboard').appendChild(li)
                 })
             })
@@ -101,19 +156,14 @@
                 clearInputs()
                 if (req.status == 200) {
                     readyForSignout()
-                    renderPosts()
                 }
             })
             req.open('POST', 'http://localhost:8080/login')
             req.setRequestHeader('Content-Type', 'application/json')
-            req.send(JSON.stringify(credentials()))
-        
-            function credentials() {
-                return {
-                    username: document.getElementById("username").value,
-                    password: document.getElementById("password").value
-                }
-            }
+            req.send(JSON.stringify({
+                username: document.getElementById('username').value,
+                password: document.getElementById('password').value
+            }))
         }
     
     </script>
