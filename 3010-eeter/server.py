@@ -108,12 +108,23 @@ class UI:
             
 class Pictures:
     
-    def __init__(self, socket):
+    def __init__(self, socket, method, path, body):
         self.socket = socket
+        self.socket = socket
+        self.method = method
+        self.path = path
+        self.body = body
     
-    def all(self):
+    def of(socket, req):
+        method, path, body, v = HttpRequest.split(req)
+        return Pictures(socket, method, path, body)
+
+    def extractTitle(self):
+        return self.path.split('/')[2]
+    
+    def invoke(self):
         try:
-            with open('binary.jpeg', 'rb') as f:
+            with open(self.extractTitle() +'.jpeg', 'rb') as f:
                 img = f.read()
             res = f'HTTP/1.1 200 OK\r\nContent-Type: image/jpeg\r\n\r\n'
             self.socket.sendall(res.encode('utf-8') + img)
@@ -299,8 +310,8 @@ class Server:
             Signin.of(socket, req).invoke()
         elif '/logout' == path:
             Signout.of(socket, req).invoke()
-        elif '/images' == path:
-            Pictures(socket).all()
+        elif '/images' in path:
+            Pictures.of(socket, req).invoke()
         elif '/tweets' in path:
             Posts.of(socket, req).invoke()
         else:
