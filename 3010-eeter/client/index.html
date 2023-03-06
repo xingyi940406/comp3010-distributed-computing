@@ -4,17 +4,21 @@
     <title>3010-eeter</title>
     <style>
         * {
-            font-size: 16px;
+            font-size: 18px;
             font-family: 'Ubuntu Mono';
         }
 
         .banner {
             font-size: 48px;
-            color: rgb(135, 11, 218)
+            color: rgb(135, 11, 218);
         }
 
         #posts, #signin {
             cursor: pointer;
+        }
+
+        img:hover {
+            transform: scale(1.1);
         }
     </style>
 </head>
@@ -168,21 +172,23 @@
         }
 
         function onRegister() {
-            onAuth('register', {
-                username: atId('register-username'),
-                password: atId('register-password')
-            })
+            onAuth('register', atId('register-username'), atId('register-password'))
         }
 
         function onSignin() {
-            onAuth('login', {
-                username: atId('username'),
-                password: atId('password')
-            })
+            onAuth('login', atId('username'), atId('password'))
         }
 
-        function onAuth(path, o) {
-            console.log(o)
+        function onAuth(path, user, pwd) {
+            if (user && pwd) {
+                authReq(path, {
+                    username: user,
+                    password: pwd
+                })
+            } else alert('Required fields are missing')
+        }
+
+        function authReq(path, o) {
             const req = new XMLHttpRequest()
             req.addEventListener('load', function() {
                 clearInputs()
@@ -210,7 +216,7 @@
 
         function runForAuthor(author, f) {
             if (author === user()) f()
-            else alert('Only author can perform this action')
+            else alert('Only the creator of this post can perform this action')
         }
     </script>
 </body>
