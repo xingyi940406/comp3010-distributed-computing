@@ -57,7 +57,10 @@
         function onAdd() {
             runIfSignedIn(() => {
                 const input = atId('post')
-                if (!input?.length) return
+                if (!input?.length) {
+                    alert('Empty post is not allowed')
+                    return
+                }
                 const req = new XMLHttpRequest()
                 req.onload = function() {
                     clearInputs()

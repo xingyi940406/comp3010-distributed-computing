@@ -63,7 +63,7 @@ class Repo:
             
     def load(self):
         try:
-            with open(self.db, 'r') as f:
+            with open(self.dbPath(), 'r') as f:
                 result = json.load(f)
             self.dirty = False
         except (FileNotFoundError, json.JSONDecodeError):
@@ -72,9 +72,12 @@ class Repo:
     
     def save(self):
         self.sort()
-        with open(self.db, 'w') as f:
+        with open(self.dbPath(), 'w') as f:
             json.dump(self.records, f, indent=4)
         self.dirty = True
+        
+    def dbPath(self):
+        return './data/' + self.db
 
 class RESTful:
     
@@ -106,12 +109,12 @@ class UI:
     
     def mount(self):
         try:
-            with open('index.html', 'r') as f:
+            with open('./client/index.html', 'r') as f:
                 ui = f.read()
             res = f'HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n\r\n{ui}'
             self.socket.send(res.encode())
         except FileNotFoundError:
-            print("File not found")
+            print("UI file not found")
         except IOError:
             print("IO error")
         except Exception as e:
@@ -135,12 +138,12 @@ class Pictures:
     
     def invoke(self):
         try:
-            with open(self.extractTitle() +'.jpeg', 'rb') as f:
+            with open('./static/' + self.extractTitle() +'.jpeg', 'rb') as f:
                 img = f.read()
             res = f'HTTP/1.1 200 OK\r\nContent-Type: image/jpeg\r\n\r\n'
             self.socket.sendall(res.encode('utf-8') + img)
         except FileNotFoundError:
-            print("File not found")
+            print("Static file not found")
         except IOError:
             print("IO error")
         except Exception as e:
@@ -351,9 +354,9 @@ class Server:
 
     def onObserve(self, socket):
         req = socket.recv(1024).decode()
-        if 'favicon.ico' in req:
-            return
         path = req.split('\n')[0].split()[1]
+        if '/favicon.ico' in path:
+            return
         if '/' == path:
             UI(socket).mount()
         elif '/register' == path:

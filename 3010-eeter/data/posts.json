@@ -13,5 +13,10 @@
         "id": 3,
         "content": "Post 3",
         "author": "admin"
+    },
+    {
+        "id": 50,
+        "content": "Post 4",
+        "author": "Shit"
     }
 ]
