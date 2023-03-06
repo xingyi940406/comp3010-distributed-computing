@@ -10,7 +10,7 @@
 
         .banner {
             font-size: 48px;
-            color: rgb(11, 94, 218)
+            color: rgb(135, 11, 218)
         }
 
         #posts, #signin {
@@ -34,7 +34,7 @@
     <br>
     <button id="posts" type="button" onclick="onView()">See Posts</button>
     <input id='post' type='text' placeholder='Write your post'>
-    <button id="upload" type="button" onclick="onSave()">Add</button>
+    <button id="upload" type="button" onclick="onAdd()">Add</button>
     <ul id="dashboard"></ul>
     <button type="button" onclick="onDisplay()">See Pictures</button>
     <ul id="pictures" style="visibility:hidden;">
@@ -43,32 +43,35 @@
         <img src="http://localhost:8080/images/f" height="30%" width="30%" alt="Shit">
     </ul>
     <script>
-        if (user()) readyForSignout()
-
-        function onDisplay() {
-            if (user()){
-                const pics = document.getElementById('pictures')
-                pics.style.visibility = 'visible';
-            }
+        if (user()) {
+            readyForSignout()
+            renderPosts()
         }
 
-        function onSave() {
-            const content = atId('post')
-            if (!content?.length) return
-            const post = {
-                'id': 100,
-                'content': content,
-                'author': user()
-            }
-            const req = new XMLHttpRequest()
-            req.addEventListener('load', function() {
-                clearInputs()
-                document.getElementById('posts').innerText = 'Refresh'
-                renderPosts()
+        function onDisplay() {
+            runIfSignedIn(() => {
+                document.getElementById('pictures').style.visibility = 'visible'
             })
-            req.open('POST', 'http://localhost:8080/tweets')
-            req.setRequestHeader('Content-Type', 'application/json')
-            req.send(JSON.stringify(post))
+        }
+
+        function onAdd() {
+            runIfSignedIn(() => {
+                const input = atId('post')
+                if (!input?.length) return
+                const req = new XMLHttpRequest()
+                req.onload = function() {
+                    clearInputs()
+                    alert('Post saved')
+                    renderPosts()
+                }
+                req.open('POST', 'http://localhost:8080/tweets')
+                req.setRequestHeader('Content-Type', 'application/json')
+                req.send(JSON.stringify({
+                    'id': 100,
+                    'content': input,
+                    'author': user()
+                }))
+            })
         }
 
         function readyForSignout() {
@@ -87,7 +90,7 @@
 
         function onSignout() {
             const req = new XMLHttpRequest()
-            req.addEventListener('load', function() {
+            req.onload = function() {
                 let cookies = document.cookie.split(';')
                 for (let i = 0; i < cookies.length; i++) {
                     document.cookie = cookies[i] + "=; expires="+ new Date(0).toUTCString();
@@ -96,9 +99,8 @@
                 const btn = document.getElementById('signin')
                 btn.innerText = 'Sign in'
                 btn.addEventListener('click', onSignin)
-
                 document.getElementById('dashboard').innerHTML = ''
-            })
+            }
             req.open('POST', 'http://localhost:8080/logout')
             req.setRequestHeader('Content-Type', 'application/json')
             req.send(JSON.stringify({
@@ -113,10 +115,8 @@
         }
 
         function onView() {
-            console.log(user())
-            if (user()) {
-                renderPosts()
-            }
+            if (user()) renderPosts()
+            else authAlert()
         }
 
         function clearDashboard() {
@@ -126,35 +126,39 @@
             }
         }
 
-        function deleteBtn(post) {
+        function del(post) {
             const btn = document.createElement('button')
             btn.innerText = 'X'
+            if (post['author'] === user())
+                btn.style.color =  'red'
             btn.addEventListener('click', function() {
-                const req = new XMLHttpRequest()
-                req.addEventListener('load', function() {
-                    document.getElementById('posts').innerText = 'Refresh'
+                runForAuthor(post['author'], () => {
+                    const req = new XMLHttpRequest()
+                    req.open('DELETE', `http://localhost:8080/tweets/${post['id']}`)
+                    req.setRequestHeader('Content-Type', 'application/json')
+                    req.onload = function() {
+                        alert('Post deleted')
+                        renderPosts()
+                    }
+                    req.send()
                 })
-                req.open('DELETE', `http://localhost:8080/tweets/${post['id']}`)
-                req.setRequestHeader('Content-Type', 'application/json')  
-                req.send()           
             })
             return btn
         }
 
         function renderPosts() {
             const req = new XMLHttpRequest()
-            req.addEventListener('load', function() {
-                console.log('Render post')
+            req.onload = function() {
+                alert('Render post')
                 clearDashboard()
                 const posts = JSON.parse(req.responseText)
                 posts.forEach(p => {
                     const li = document.createElement('li')
                     li.innerText = p['content'] + ' '
-                    if (p['author'] === user())
-                        li.appendChild(deleteBtn(p))
+                    li.appendChild(del(p))
                     document.getElementById('dashboard').appendChild(li)
                 })
-            })
+            }
             req.open('GET', 'http://localhost:8080/tweets')
             req.setRequestHeader("Accept","application/json")
             req.withCredentials = true
@@ -196,7 +200,16 @@
         function clearAtId(id) {
             document.getElementById(id).value = ''
         }
-    
+
+        function runIfSignedIn(f) {
+            if (user()) f()
+            else alert('Please register or sign in')
+        }
+
+        function runForAuthor(author, f) {
+            if (author === user()) f()
+            else alert('Only author can perform this action')
+        }
     </script>
 </body>
 </html>

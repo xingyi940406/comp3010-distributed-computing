@@ -11,12 +11,16 @@ class Repo:
     
     def all(self):
         self.ensureRecordsFresh()
-        return self.records
+        o = self.records
+        print(o)
+        return o
     
     def byId(self, id):
         self.ensureRecordsFresh()
         i = self.at(id)
-        return self.records[i] if self.valid(i) else None
+        o = self.records[i] if self.valid(i) else None
+        print(o)
+        return o
 
     def post(self, o):
         id = o['id']
@@ -25,18 +29,21 @@ class Repo:
         else:
             self.records.append(o)
             self.save()
+        print('Saved')
     
     def put(self, id, o):
         i = self.at(id)
         if (self.valid(i)):
             self.records[i] = o
             self.save()
+        print('Saved')
     
     def delete(self, id):
         i = self.at(id)
         if (self.valid(i)):
             del self.records[i]
             self.save()
+        print('Saved')
             
     def sort(self):
         self.records = sorted(self.records, key = lambda o: o['id'])
@@ -75,10 +82,14 @@ class RESTful:
         self.repo = repo
     
     def all(self):
-        return self.repo.all()
+        o = self.repo.all()
+        print('Repo -', o)
+        return o
     
     def byId(self, id: int):
-        return self.repo.at(id)
+        o = self.repo.at(id)
+        print('Repo -', o)
+        return o
     
     def post(self, o):
         self.repo.post(o)
@@ -258,6 +269,7 @@ class Posts:
             
     def all(self):
         self.reply(self.restful.all())
+        print('Sent posts')
         
     def byId(self):
         self.reply(self.restful.byId(self.stripId()))
@@ -286,7 +298,7 @@ class Posts:
         self.all()
         
     def reply(self, o):
-        self.socket.sendall(self.ok(self.jsonify(o)).encode())
+        self.socket.send(self.ok(self.jsonify(o)).encode())
         
     def jsonify(self, o):
         return json.dumps(o)
@@ -329,20 +341,18 @@ class Server:
     def start(self):
         print('http://localhost:8080')
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-            self.config(s)
+            s.bind((self.host, self.port))
+            s.listen()
             while True:
                 conn, addr = s.accept()
                 print(f'Connected to {addr}')
                 t = threading.Thread(target=self.onObserve, args=(conn,))
-                t.start() 
-                    
-    def config(self, s):
-        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        s.bind((self.host, self.port))
-        s.listen()
+                t.start()
 
     def onObserve(self, socket):
         req = socket.recv(1024).decode()
+        if 'favicon.ico' in req:
+            return
         path = req.split('\n')[0].split()[1]
         if '/' == path:
             UI(socket).mount()
