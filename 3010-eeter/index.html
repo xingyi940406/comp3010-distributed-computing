@@ -21,6 +21,12 @@
 <body>
     <h1 class='banner'>3010-eeter</h1>
     <div>
+        <input id="register-username" type="text" placeholder="username" />
+        <input id="register-password" type="password" placeholder="password" />
+        <button id="register" type="button" onclick="onRegister()">Register</button>
+    </div>
+    <br>
+    <div>
         <input id="username" type="text" placeholder="username" />
         <input id="password" type="password" placeholder="password" />
         <button id="signin" type="button" onclick="onSignin()">Sign In</button>
@@ -47,7 +53,7 @@
         }
 
         function onSave() {
-            const content = document.getElementById('post').value
+            const content = atId('post')
             if (!content?.length) return
             const post = {
                 'id': 100,
@@ -72,9 +78,11 @@
         }
 
         function clearInputs() {
-            document.getElementById('username').value = ''
-            document.getElementById('password').value = ''
-            document.getElementById('post').value = ''
+            clearAtId('register-username')
+            clearAtId('register-password')
+            clearAtId('username')
+            clearAtId('password')
+            clearAtId('post')
         }          
 
         function onSignout() {
@@ -105,6 +113,7 @@
         }
 
         function onView() {
+            console.log(user())
             if (user()) {
                 renderPosts()
             }
@@ -152,7 +161,22 @@
             req.send()
         }
 
+        function onRegister() {
+            onAuth('register', {
+                username: atId('register-username'),
+                password: atId('register-password')
+            })
+        }
+
         function onSignin() {
+            onAuth('login', {
+                username: atId('username'),
+                password: atId('password')
+            })
+        }
+
+        function onAuth(path, o) {
+            console.log(o)
             const req = new XMLHttpRequest()
             req.addEventListener('load', function() {
                 clearInputs()
@@ -160,12 +184,17 @@
                     readyForSignout()
                 }
             })
-            req.open('POST', 'http://localhost:8080/login')
+            req.open('POST', 'http://localhost:8080/' + path)
             req.setRequestHeader('Content-Type', 'application/json')
-            req.send(JSON.stringify({
-                username: document.getElementById('username').value,
-                password: document.getElementById('password').value
-            }))
+            req.send(JSON.stringify(o))
+        }
+
+        function atId(id) {
+            return document.getElementById(id).value
+        }
+
+        function clearAtId(id) {
+            document.getElementById(id).value = ''
         }
     
     </script>

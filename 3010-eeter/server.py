@@ -142,7 +142,7 @@ class Signin:
         self.method = method
         self.path = path
         self.body = body
-        self.restful = RESTful(Repo('users.json'))
+        self.users = RESTful(Repo('users.json'))
         self.cookies = RESTful(Repo('cookies.json'))
 
     def of(socket, req):
@@ -153,14 +153,42 @@ class Signin:
         u = self.user()
         if u:
             username = u['username']
-            cookie = { 'id': 1, 'user': username  }
-            self.cookies.post(cookie)
-            self.socket.sendall(b'HTTP/1.1 200 OK\r\nSet-Cookie: user=' + username.encode() + b'\r\n\r\n')
+            self.cookies.post({ 
+                'id': 1, 
+                'user': username
+            })
+            self.reply({ 
+                'user': username 
+            })
         else:
             self.socket.sendall(b'HTTP/1.1 401 Unauthorized\r\nContent-Type: text/plain\r\n\r\nFailed to sign in')
             
+    def register(self):
+        u = self.user()
+        if u:
+            self.invoke()
+        else:
+            username, password = self.credentials()
+            self.users.post({
+                'id': 50,
+                'username': username,
+                'password': password
+            })
+            self.cookies.post({ 
+                'id': 1,
+                'user': username  
+            })
+            self.reply({ 
+                'user': username 
+            })
+            
+    def reply(self, o):
+        user = o['user']
+        res = f'HTTP/1.1 200 OK\r\nSet-Cookie: user={user}\r\n\r\n{json.dumps(o)}'
+        self.socket.sendall(res.encode())
+    
     def user(self):
-        for u in self.restful.all():
+        for u in self.users.all():
             if (self.credentialsMatched(u)):
                 return u
         return None
@@ -170,6 +198,7 @@ class Signin:
         return user['username'] == username and user['password'] == password
 
     def credentials(self):
+        print(self.body)
         user = json.loads(self.body)
         return (user['username'], user['password'])
   
@@ -203,8 +232,13 @@ class Posts:
         self.socket = socket
         self.method = method
         self.path = path
-        self.body = body
+        self.body = self.strip(body)
         self.restful = RESTful(Repo('posts.json'))
+        
+    def strip(self, body):
+        i = body.find("{")
+        j = body.find("}") + 1
+        return body[i:j]
 
     def of(socket, req):
         method, path, body, v = HttpRequest.split(req)
@@ -230,20 +264,26 @@ class Posts:
 
     def delete(self):
         self.restful.delete(self.stripId())
-        self.reply('Post deleted')
+        self.all()
 
     def put(self):
         id = self.stripId()
         o = json.loads(self.body)
         if o['id'] == id:
             self.restful.put(id, o)
-            self.reply('Post edited')
+            self.all()
         else:
             self.socket.sendall(b'HTTP/1.1 404 Bad Request\r\nContent-Type: text/plain\r\n\r\nUrl param does not match object id in the request body')
-
+    
     def post(self):
-        self.restful.post(json.loads(self.body))
-        self.reply('Post added')
+        body = json.loads(self.body)
+        o = {
+            'id': 50,
+            'content': body['content'],
+            'author': body['author']
+        }
+        self.restful.post(json.loads(json.dumps(o)))
+        self.all()
         
     def reply(self, o):
         self.socket.sendall(self.ok(self.jsonify(o)).encode())
@@ -287,7 +327,7 @@ class Server:
         self.host = host
     
     def start(self):
-        print('http://localhost:8080/')
+        print('http://localhost:8080')
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             self.config(s)
             while True:
@@ -306,6 +346,8 @@ class Server:
         path = req.split('\n')[0].split()[1]
         if '/' == path:
             UI(socket).mount()
+        elif '/register' == path:
+            Signin.of(socket, req).register()
         elif '/login' == path:
             Signin.of(socket, req).invoke()
         elif '/logout' == path:

@@ -1,7 +1,27 @@
 [
     {
-        "id": 100,
-        "content": "TTT",
+        "id": 1,
+        "content": "Post 1",
         "author": "admin"
+    },
+    {
+        "id": 2,
+        "content": "Post 2",
+        "author": "admin"
+    },
+    {
+        "id": 3,
+        "content": "Post 3",
+        "author": "admin"
+    },
+    {
+        "id": 4,
+        "content": "Post 4",
+        "author": "john"
+    },
+    {
+        "id": 5,
+        "content": "Post 5",
+        "author": "john"
     }
 ]

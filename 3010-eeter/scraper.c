@@ -9,7 +9,8 @@
 #include <netdb.h> // For getaddrinfo
 #include <unistd.h> // for close
 #include <stdlib.h> // for exit
-int main(void)
+
+int main(int argc, char *argv[])
 {
     int socket_desc;
     struct sockaddr_in server_addr;
@@ -39,7 +40,7 @@ int main(void)
     hints.ai_flags |= AI_CANONNAME;
     
     // get the ip of the page we want to scrape
-    int out = getaddrinfo ("www.cs.umanitoba.ca", NULL, &hints, &result);
+    int out = getaddrinfo ("localhost", NULL, &hints, &result);
     // fail gracefully
     if (out != 0) {
         fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(out));
@@ -52,7 +53,7 @@ int main(void)
     
     // Set port and IP the same as server-side:
     server_addr.sin_family = AF_INET;
-    server_addr.sin_port = htons(80);
+    server_addr.sin_port = htons(8080);
     //server_addr.sin_addr.s_addr = inet_addr("127.0.0.1");
     server_addr.sin_addr = serverDetails->sin_addr;
     
@@ -73,12 +74,72 @@ int main(void)
     Host: www.cs.umanitoba.ca
     
     */
+
+    if (argc <= 3) {
+        printf("Invalid args");
+        return 1;
+    }
+
+    // ./out first last test test test
+    //   o     1     2    3    4    5
+    char *first = argv[1], *last = argv[2], *arg = argv[3];
+
+    char author[100];
+    strcpy(author, first);
+    strcat(author, " ");
+    strcpy(author, last);
+
+    char user[1000];
+    sprintf(user, "{\"username\": \"%s\", \"password\": \"%s\"}", author, "123");
+    char auth[2000];
+    sprintf(auth, "POST /register HTTP/1.1\r\nHost: %s:%d\r\nContent-Type: application/json\r\nContent-Length: %lu\r\n\r\n%s", "localhost", 8080, strlen(user), user);
+    if(send(socket_desc, auth, strlen(auth), 0) < 0){
+        printf("Unable to authenticate\n");
+        return -1;
+    }
+
+    // Receive the server's response:
+    if(recv(socket_desc, server_message, sizeof(server_message), 0) < 0){
+        printf("Error while receiving server's msg\n");
+        return -1;
+    }
     
-    char request[] = "GET /~robg/3010/index.html HTTP/1.1\r\nHost: www.cs.umanitoba.ca\r\n\r\n";
-    printf("Sending:\n%s\n", request);
+    printf("Server's response: %s\n",server_message);
+
+    char author[100];
+    strcpy(author, first);
+    strcat(author, " ");
+    strcpy(author, last);
+    char content[2000];
+    strcpy(content, arg);
+    for (int i = 4; i < argc; i++) {
+        arg = argv[i];
+        strcat(content, " ");
+        strcat(content, arg);
+    }
+
+    char body[2000];
+    sprintf(body, "{\"content\": \"%s\", \"author\": \"%s\"}", content, author); 
+    char add[2000];
+    sprintf(add, "POST /tweets HTTP/1.1\r\nHost: %s:%d\r\nContent-Type: application/json\r\nContent-Length: %lu\r\n\r\n%s", "localhost", 8080, strlen(body), body);
+    if(send(socket_desc, add, strlen(add), 0) < 0){
+        printf("Unable to add post\n");
+        return -1;
+    }
+
+    // Receive the server's response:
+    if(recv(socket_desc, server_message, sizeof(server_message), 0) < 0){
+        printf("Error while receiving server's msg\n");
+        return -1;
+    }
+    
+    printf("Server's response: %s\n",server_message);
+
+    char all[] = "GET /tweets HTTP/1.1\r\nHost: localhost\r\n\r\n";
+    printf("Sending:\n%s\n", all);
     // Send the message to server:
-    printf("Sending request, %lu bytes\n", strlen(request));
-    if(send(socket_desc, request, strlen(request), 0) < 0){
+    printf("Sending request, %lu bytes\n", strlen(all));
+    if(send(socket_desc, all, strlen(all), 0) < 0){
         printf("Unable to send message\n");
         return -1;
     }
