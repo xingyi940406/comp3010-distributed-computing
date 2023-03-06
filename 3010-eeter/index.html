@@ -115,8 +115,7 @@
         }
 
         function onView() {
-            if (user()) renderPosts()
-            else authAlert()
+            runIfSignedIn(() => renderPosts())
         }
 
         function clearDashboard() {
