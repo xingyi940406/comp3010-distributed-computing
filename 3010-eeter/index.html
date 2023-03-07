@@ -84,23 +84,23 @@
             let btn = atId('signin')
             btn.innerText = 'Sign Out'
             btn.onclick = onSignout
-            hideInputs()
+            disableAuth()
         }
 
-        function hideInputs() {
+        function disableAuth() {
+            atId('username').style.visibility = 'hidden'
+            atId('password').style.visibility = 'hidden'
             atId('register-username').style.visibility = 'hidden'
             atId('register-password').style.visibility = 'hidden'
             atId('register').disabled = true
-            atId('username').style.visibility = 'hidden'
-            atId('password').style.visibility = 'hidden'
         }
 
-        function showInputs() {
+        function enableAuth() {
             atId('username').style.visibility = 'visible'
             atId('password').style.visibility = 'visible'
             atId('register-username').style.visibility = 'visible'
             atId('register-password').style.visibility = 'visible'
-            atId('register').disabled = true
+            atId('register').disabled = false
         }
 
         function clearInputs() {
@@ -128,7 +128,7 @@
             }
         }
 
-        function del(post) {
+        function delBtn(post) {
             const btn = document.createElement('button')
             btn.innerText = 'X'
             if (post['author'] === user())
@@ -155,7 +155,7 @@
                 posts.forEach(p => {
                     const li = document.createElement('li')
                     li.innerText = p['content'] + ' '
-                    li.appendChild(del(p))
+                    li.appendChild(delBtn(p))
                     atId('dashboard').appendChild(li)
                 })
             }
@@ -185,6 +185,7 @@
             req.onload = function() {
                 clearInputs()
                 if (req.status == 200) readyForSignout()
+                else alert('Failed to sign in')
             }
             req.open('POST', 'http://localhost:3000/' + path)
             req.setRequestHeader('Content-Type', 'application/json')
@@ -214,7 +215,7 @@
         }
 
         function readyForSignIn() {
-            showInputs()
+            enableAuth()
             let btn = atId('signin')
             btn.innerText = 'Sign In'
             btn.onclick = onSignin

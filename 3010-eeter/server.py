@@ -1,6 +1,7 @@
 import json
 import socket
 import threading
+from utils import PathUtils
 
 class Repo:
     
@@ -151,35 +152,24 @@ class Signin:
     def invoke(self):
         u = self.user()
         if u:
-            username = u['username']
-            self.cookies.post({ 
-                'id': 1, 
-                'user': username
-            })
-            self.reply({ 
-                'user': username 
-            })
+            self.signin(u)
         else:
             self.socket.sendall(b'HTTP/1.1 401 Unauthorized\r\nContent-Type: text/plain\r\n\r\nFailed to sign in')
+
+    def signin(self, u):
+        username = u['username']
+        self.cookies.post({ 'id': 1, 'user': username })
+        self.reply({ 'user': username })
             
     def register(self):
         u = self.user()
         if u:
-            self.invoke()
+            self.signin(u)
         else:
             username, password = self.credentials()
-            self.users.post({
-                'id': self.nextId(),
-                'username': username,
-                'password': password
-            })
-            self.cookies.post({ 
-                'id': 1,
-                'user': username  
-            })
-            self.reply({ 
-                'user': username 
-            })
+            self.users.post({ 'id': self.nextId(), 'username': username, 'password': password })
+            self.cookies.post({ 'id': 1, 'user': username })
+            self.reply({  'user': username })
             
     def nextId(self):
         all = self.users.all()
@@ -261,18 +251,28 @@ class Posts:
         else:
             print('Invalid HTTP method')
             
+    def atId(self, f):
+        if PathUtils.hasId(self.path):
+            f()
+    
+    def atIdOrElse(self, f, orElse):
+        if PathUtils.hasId(self.path):
+            f()
+        else:
+            orElse()
+            
     def all(self):
         self.reply(self.restful.all())
         
     def byId(self):
-        self.reply(self.restful.byId(self.stripId()))
+        self.reply(self.restful.byId(PathUtils.stripId(self.path)))
 
     def delete(self):
-        self.restful.delete(self.stripId())
+        self.restful.delete(PathUtils.stripId(self.path))
         self.reply('')
 
     def put(self):
-        id = self.stripId()
+        id = PathUtils.stripId(self.path)
         o = json.loads(self.body)
         if o['id'] == id:
             self.restful.put(id, o)
@@ -301,25 +301,7 @@ class Posts:
 
     def ok(self, body):
         return f'HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n\n{body}'
-        
-    def atId(self, f):
-        if self.idInPath():
-            f()
     
-    def atIdOrElse(self, f, orElse):
-        if self.idInPath():
-            f()
-        else:
-            orElse()
-            
-    def idInPath(self):
-        return len(self.splitPath()) == 3
-    
-    def stripId(self):
-        return int(self.splitPath()[2])
-    
-    def splitPath(self):
-        return self.path.split('/')
 
 class HttpRequest:
     
@@ -334,8 +316,8 @@ class Server:
         self.port = port
         self.host = host
     
-    def start(self):
-        print('http://localhost:3000')
+    def run(self):
+        print('http://localhost:3000/')
         server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         server.bind((self.host, self.port))
@@ -348,7 +330,7 @@ class Server:
 
     def onObserve(self, client):
         req = client.recv(1024).decode()
-        path = req.split('\n')[0].split()[1]
+        path = self.extractPath(req)
         
         if '/' == path:
             UI(client).mount()
@@ -362,11 +344,16 @@ class Server:
             Pictures.of(client, req).invoke()
         elif '/tweets' in path:
             Posts.of(client, req).invoke()
+        elif '/favicon.ico' in path:
+            client.sendall(b"HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\n")
         else:
-            print('Invalid path', path)
-            client.sendall(b"HTTP/1.1 200 Not OK\r\nContent-Type: text/plain\r\nContent-Length: 13\r\n\r\n404 Not Found")
+            client.sendall(b"HTTP/1.1 404 Not Found\r\nContent-Type: text/plain\r\nContent-Length: 13\r\n\r\n404 Not Found")
+            
         client.shutdown(socket.SHUT_RDWR)
         client.close()
+
+    def extractPath(self, req):
+        return req.split('\n')[0].split()[1]
     
 if __name__ == '__main__':
-    Server().start()
+    Server().run()
