@@ -375,6 +375,11 @@ class Server:
         req = client.recv(1024).decode('utf-8', 'ignore')
         path = self.extractPath(req)
         
+        print('HTTP Request')
+        print('-------------')
+        print(req)
+        print('-------------')
+        
         if '/' == path:
             UI(client).mount()
         elif '/api/register' == path:
