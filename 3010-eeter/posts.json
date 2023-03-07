@@ -1,0 +1,47 @@
+[
+    {
+        "id": 2,
+        "content": "Post 2",
+        "author": "admin"
+    },
+    {
+        "id": 4,
+        "content": "Post 3",
+        "author": "shit"
+    },
+    {
+        "id": 5,
+        "content": "Post 3",
+        "author": "shit"
+    },
+    {
+        "id": 8,
+        "content": "Post 5",
+        "author": "shit"
+    },
+    {
+        "id": 9,
+        "content": "Post 6",
+        "author": "shit"
+    },
+    {
+        "id": 10,
+        "content": "Shit",
+        "author": "admin"
+    },
+    {
+        "id": 11,
+        "content": "Shit",
+        "author": "admin"
+    },
+    {
+        "id": 12,
+        "content": "Shit",
+        "author": "admin"
+    },
+    {
+        "id": 14,
+        "content": "Fuck",
+        "author": "shoot"
+    }
+]

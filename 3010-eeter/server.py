@@ -6,78 +6,67 @@ class Repo:
     
     def __init__(self, db):
         self.db = db
-        self.dirty = False
         self.records = self.load()
     
     def all(self):
-        self.ensureRecordsFresh()
-        o = self.records
-        print(o)
-        return o
+        return self.records
     
     def byId(self, id):
-        self.ensureRecordsFresh()
         i = self.at(id)
-        o = self.records[i] if self.valid(i) else None
-        print(o)
-        return o
+        return self.records[i] if self.valid(i) else None
 
     def post(self, o):
-        id = o['id']
-        if self.byId(id):
-            self.put(id, o)
-        else:
-            self.records.append(o)
-            self.save()
-        print('Saved')
+        self.records.append(o)
+        self.save()
     
     def put(self, id, o):
         i = self.at(id)
         if (self.valid(i)):
             self.records[i] = o
             self.save()
-        print('Saved')
     
     def delete(self, id):
         i = self.at(id)
         if (self.valid(i)):
             del self.records[i]
             self.save()
-        print('Saved')
-            
-    def sort(self):
-        self.records = sorted(self.records, key = lambda o: o['id'])
 
     def at(self, id: int):
         for i, o in enumerate(self.records):
             if (o['id'] == id):
                 return i
         return -1
-    
-    def ensureRecordsFresh(self):
-        if self.dirty:
-            self.records = self.load()
             
     def valid(self, i):
         return i != -1
             
     def load(self):
         try:
-            with open(self.dbPath(), 'r') as f:
+            with open(self.pathToDb(), 'r') as f:
                 result = json.load(f)
-            self.dirty = False
         except (FileNotFoundError, json.JSONDecodeError):
             result = []
+        except IOError:
+            print("IO error")
+        except Exception as e:
+            print(e)
         return result
     
     def save(self):
-        self.sort()
-        with open(self.dbPath(), 'w') as f:
-            json.dump(self.records, f, indent=4)
-        self.dirty = True
+        try:
+            with open(self.pathToDb(), 'w') as f:
+                json.dump(self.records, f, indent=4)
+            self.reload()
+        except IOError:
+            print("IO error")
+        except Exception as e:
+            print(e)
         
-    def dbPath(self):
-        return './data/' + self.db
+    def reload(self):
+        self.records = self.load()
+        
+    def pathToDb(self):
+        return self.db
 
 class RESTful:
     
@@ -85,14 +74,10 @@ class RESTful:
         self.repo = repo
     
     def all(self):
-        o = self.repo.all()
-        print('Repo -', o)
-        return o
+        return self.repo.all()
     
     def byId(self, id: int):
-        o = self.repo.at(id)
-        print('Repo -', o)
-        return o
+        return self.repo.at(id)
     
     def post(self, o):
         self.repo.post(o)
@@ -109,10 +94,10 @@ class UI:
     
     def mount(self):
         try:
-            with open('./client/index.html', 'r') as f:
+            with open('index.html', 'r') as f:
                 ui = f.read()
             res = f'HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n\r\n{ui}'
-            self.socket.send(res.encode())
+            self.socket.sendall(res.encode())
         except FileNotFoundError:
             print("UI file not found")
         except IOError:
@@ -138,7 +123,7 @@ class Pictures:
     
     def invoke(self):
         try:
-            with open('./static/' + self.extractTitle() +'.jpeg', 'rb') as f:
+            with open(self.extractTitle() +'.jpeg', 'rb') as f:
                 img = f.read()
             res = f'HTTP/1.1 200 OK\r\nContent-Type: image/jpeg\r\n\r\n'
             self.socket.sendall(res.encode('utf-8') + img)
@@ -184,7 +169,7 @@ class Signin:
         else:
             username, password = self.credentials()
             self.users.post({
-                'id': 50,
+                'id': self.nextId(),
                 'username': username,
                 'password': password
             })
@@ -195,6 +180,12 @@ class Signin:
             self.reply({ 
                 'user': username 
             })
+            
+    def nextId(self):
+        all = self.users.all()
+        if len(all) == 0:
+            return 1
+        return max(all, key=lambda o: o['id'])['id'] + 1
             
     def reply(self, o):
         user = o['user']
@@ -260,6 +251,8 @@ class Posts:
         
     def invoke(self):
         if self.method == 'GET':
+            if '/favicon.ico' in self.path:
+                socket.sendall(b'HTTP/1.1 404 Not Found\r\n\r\n')
             self.atIdOrElse(lambda: self.byId(), lambda: self.all())
         elif self.method == 'POST':
             self.post()
@@ -272,39 +265,41 @@ class Posts:
             
     def all(self):
         self.reply(self.restful.all())
-        print('Sent posts')
         
     def byId(self):
         self.reply(self.restful.byId(self.stripId()))
 
     def delete(self):
         self.restful.delete(self.stripId())
-        self.all()
+        self.reply('')
 
     def put(self):
         id = self.stripId()
         o = json.loads(self.body)
         if o['id'] == id:
             self.restful.put(id, o)
-            self.all()
+            self.reply('')
         else:
             self.socket.sendall(b'HTTP/1.1 404 Bad Request\r\nContent-Type: text/plain\r\n\r\nUrl param does not match object id in the request body')
     
     def post(self):
         body = json.loads(self.body)
         o = {
-            'id': 50,
+            'id': self.nextId(),
             'content': body['content'],
             'author': body['author']
         }
         self.restful.post(json.loads(json.dumps(o)))
-        self.all()
+        self.reply('')
         
+    def nextId(self):
+        all = self.restful.all()
+        if len(all) == 0:
+            return 1
+        return max(all, key=lambda o: o['id'])['id'] + 1
+    
     def reply(self, o):
-        self.socket.send(self.ok(self.jsonify(o)).encode())
-        
-    def jsonify(self, o):
-        return json.dumps(o)
+        self.socket.sendall(self.ok(json.dumps(o)).encode())
 
     def ok(self, body):
         return f'HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n\n{body}'
@@ -337,12 +332,12 @@ class HttpRequest:
 
 class Server:
     
-    def __init__(self, port = 8080, host = 'localhost'):
+    def __init__(self, port = 3000, host = 'localhost'):
         self.port = port
         self.host = host
     
     def start(self):
-        print('http://localhost:8080')
+        print('http://localhost:3000')
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             s.bind((self.host, self.port))
             s.listen()
@@ -355,8 +350,7 @@ class Server:
     def onObserve(self, socket):
         req = socket.recv(1024).decode()
         path = req.split('\n')[0].split()[1]
-        if '/favicon.ico' in path:
-            return
+        
         if '/' == path:
             UI(socket).mount()
         elif '/register' == path:
@@ -371,6 +365,7 @@ class Server:
             Posts.of(socket, req).invoke()
         else:
             print('Invalid path', path)
+            socket.sendall(b"HTTP/1.1 200 Not OK\r\nContent-Type: text/plain\r\nContent-Length: 13\r\n\r\n404 Not Found")
     
 if __name__ == '__main__':
     Server().start()
