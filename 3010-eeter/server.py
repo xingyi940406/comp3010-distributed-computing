@@ -78,7 +78,7 @@ class RESTful:
         return self.repo.all()
     
     def byId(self, id: int):
-        return self.repo.at(id)
+        return self.repo.byId(id)
     
     def post(self, o):
         self.repo.post(o)
@@ -130,6 +130,19 @@ class Pictures:
             self.socket.sendall(res.encode('utf-8') + img)
         except FileNotFoundError:
             print("Static file not found")
+        except IOError:
+            print("IO error")
+        except Exception as e:
+            print(e)
+            
+    def mount(self):
+        try:
+            with open('images.html', 'r') as f:
+                ui = f.read()
+            res = f'HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n\r\n{ui}'
+            self.socket.sendall(res.encode())
+        except FileNotFoundError:
+            print("UI file not found")
         except IOError:
             print("IO error")
         except Exception as e:
@@ -223,12 +236,14 @@ class Signout:
       
 class Posts:
     
-    def __init__(self, socket, method, path, body):
+    def __init__(self, socket, method, path, body, user):
         self.socket = socket
         self.method = method
         self.path = path
         self.body = self.strip(body)
-        self.restful = RESTful(Repo('posts.json'))
+        self.user = user
+        self.posts = RESTful(Repo('posts.json'))
+        self.cookies = RESTful(Repo('cookies.json'))
         
     def strip(self, body):
         i = body.find("{")
@@ -237,7 +252,7 @@ class Posts:
 
     def of(socket, req):
         method, path, body, v = HttpRequest.split(req)
-        return Posts(socket, method, path, body)
+        return Posts(socket, method, path, body, PathUtils.extractUser(req))
         
     def invoke(self):
         if self.method == 'GET':
@@ -261,25 +276,38 @@ class Posts:
         else:
             orElse()
             
+    def authorOnly(self, f):
+        if self.user():
+            f()
+        else:
+            self.replyUnauthorized()
+            
     def all(self):
-        self.reply(self.restful.all())
+        self.reply(self.posts.all())
         
     def byId(self):
-        self.reply(self.restful.byId(PathUtils.stripId(self.path)))
+        self.reply(self.posts.byId(PathUtils.stripId(self.path)))
 
     def delete(self):
-        self.restful.delete(PathUtils.stripId(self.path))
-        self.reply('')
+        id = PathUtils.stripId(self.path)
+        if (self.isAsAuthor(id)):
+            self.posts.delete(PathUtils.stripId(self.path))
+            self.reply('Post deleted')
+        else:
+            self.replyUnauthorized()
 
     def put(self):
         id = PathUtils.stripId(self.path)
-        o = json.loads(self.body)
-        if o['id'] == id:
-            self.restful.put(id, o)
-            self.reply('')
+        if (self.isAsAuthor(id)):
+            o = json.loads(self.body)
+            if o['id'] == id:
+                self.posts.put(id, o)
+                self.reply('Post updated')
+            else:
+                self.socket.sendall(b'HTTP/1.1 404 Bad Request\r\nContent-Type: text/plain\r\n\r\nUrl param does not match object id in the request body')  
         else:
-            self.socket.sendall(b'HTTP/1.1 404 Bad Request\r\nContent-Type: text/plain\r\n\r\nUrl param does not match object id in the request body')
-    
+            self.replyUnauthorized()
+        
     def post(self):
         body = json.loads(self.body)
         o = {
@@ -287,21 +315,35 @@ class Posts:
             'content': body['content'],
             'author': body['author']
         }
-        self.restful.post(json.loads(json.dumps(o)))
-        self.reply('')
+        self.posts.post(json.loads(json.dumps(o)))
+        self.reply('Post added')
+        
+    def isAsAuthor(self, postId):
+        p = self.posts.byId(postId)
+        return p['author'] == self.user if p else False
+        
+    def replyUnauthorized(self):
+        self.socket.sendall(b'HTTP/1.1 401 Unauthorized\r\nContent-Type: text/plain\r\n')
         
     def nextId(self):
-        all = self.restful.all()
+        all = self.posts.all()
         if len(all) == 0:
             return 1
         return max(all, key=lambda o: o['id'])['id'] + 1
     
     def reply(self, o):
-        self.socket.sendall(self.ok(json.dumps(o)).encode())
+        res = json.dumps(o)
+        self.socket.sendall(self.ok(res).encode())
+        print('Reply')
+        print('------------')
+        print(res)
+        print('------------')
 
     def ok(self, body):
         return f'HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n\n{body}'
     
+    def user(self):
+        return self.cookies.byId(1)
 
 class HttpRequest:
     
@@ -329,20 +371,22 @@ class Server:
             t.start()
 
     def onObserve(self, client):
-        req = client.recv(1024).decode()
+        req = client.recv(1024).decode('utf-8', 'ignore')
         path = self.extractPath(req)
         
         if '/' == path:
             UI(client).mount()
-        elif '/register' == path:
+        elif '/api/register' == path:
             Signin.of(client, req).register()
-        elif '/login' == path:
+        elif '/api/login' == path:
             Signin.of(client, req).invoke()
-        elif '/logout' == path:
+        elif '/api/logout' == path:
             Signout.of(client, req).invoke()
-        elif '/images' in path:
+        elif '/images.html' == path:
+            Pictures.of(client, req).mount()
+        elif '/pics' in path:
             Pictures.of(client, req).invoke()
-        elif '/tweets' in path:
+        elif '/api/tweet' in path:
             Posts.of(client, req).invoke()
         elif '/favicon.ico' in path:
             client.sendall(b"HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\n")

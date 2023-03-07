@@ -8,3 +8,10 @@ class PathUtils:
     
     def splitPath(path):
         return path.split('/')
+    
+    def extractUser(req):
+        for o in req.split('\r\n'):
+            if 'Cookie' in o:
+                u = o.split(': ')[1].split('; ')[0].split('=')[1]
+                return u
+        return None

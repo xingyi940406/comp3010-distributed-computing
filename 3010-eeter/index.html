@@ -16,10 +16,6 @@
         #posts, #signin {
             cursor: pointer;
         }
-
-        img:hover {
-            transform: scale(1.1);
-        }
     </style>
 </head>
 <body>
@@ -40,22 +36,10 @@
     <input id='post' type='text' placeholder='Write your post'>
     <button id="upload" type="button" onclick="onAdd()">Add</button>
     <ul id="dashboard"></ul>
-    <button type="button" onclick="onDisplay()">See Pictures</button>
-    <ul id="pictures" style="visibility:hidden;">
-        <img src="http://localhost:3000/images/binary" height="30%" width="30%" alt="Shit">
-        <img src="http://localhost:3000/images/code" height="30%" width="30%" alt="Shit">
-        <img src="http://localhost:3000/images/f" height="30%" width="30%" alt="Shit">
-    </ul>
     <script>
         if (user()) {
             readyForSignout()
             renderPosts()
-        }
-
-        function onDisplay() {
-            runIfSignedIn(() => {
-                atId('pictures').style.visibility = 'visible'
-            })
         }
 
         function onAdd() {
@@ -70,7 +54,7 @@
                     clearInputs()
                     renderPosts()
                 }
-                req.open('POST', 'http://localhost:3000/tweets')
+                req.open('POST', 'http://localhost:3000/api/tweet')
                 req.setRequestHeader('Content-Type', 'application/json')
                 req.send(JSON.stringify({
                     'id': 100,
@@ -136,10 +120,10 @@
             btn.onclick = function() {
                 runForAuthor(post['author'], () => {
                     const req = new XMLHttpRequest()
-                    req.open('DELETE', `http://localhost:3000/tweets/${post['id']}`)
+                    req.open('DELETE', `http://localhost:3000/api/tweet/${post['id']}`)
                     req.setRequestHeader('Content-Type', 'application/json')
                     req.onload = function() {
-                        renderPosts()
+                        if (req.status === 200) renderPosts()
                     }
                     req.send()
                 })
@@ -159,7 +143,7 @@
                     atId('dashboard').appendChild(li)
                 })
             }
-            req.open('GET', 'http://localhost:3000/tweets')
+            req.open('GET', 'http://localhost:3000/api/tweet')
             req.setRequestHeader("Accept","application/json")
             req.withCredentials = true
             req.send()
@@ -184,10 +168,13 @@
             const req = new XMLHttpRequest()
             req.onload = function() {
                 clearInputs()
-                if (req.status == 200) readyForSignout()
+                if (req.status == 200) {
+                    readyForSignout()
+                    document.cookie = `user=${user}; path=/`;
+                }
                 else alert('Failed to sign in')
             }
-            req.open('POST', 'http://localhost:3000/' + path)
+            req.open('POST', 'http://localhost:3000/api/' + path)
             req.setRequestHeader('Content-Type', 'application/json')
             req.send(JSON.stringify({
                 'username': user,
@@ -200,8 +187,9 @@
             req.onload = function() {
                 clearCookies()
                 readyForSignIn()
+                atId('pictures').style.visibility = 'hidden'
             }
-            req.open('POST', 'http://localhost:3000/logout')
+            req.open('POST', 'http://localhost:3000/api/logout')
             req.setRequestHeader('Content-Type', 'application/json')
             req.send(JSON.stringify({
                 'user': user()
