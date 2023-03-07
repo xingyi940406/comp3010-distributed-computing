@@ -251,8 +251,6 @@ class Posts:
         
     def invoke(self):
         if self.method == 'GET':
-            if '/favicon.ico' in self.path:
-                socket.sendall(b'HTTP/1.1 404 Not Found\r\n\r\n')
             self.atIdOrElse(lambda: self.byId(), lambda: self.all())
         elif self.method == 'POST':
             self.post()
@@ -338,34 +336,37 @@ class Server:
     
     def start(self):
         print('http://localhost:3000')
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-            s.bind((self.host, self.port))
-            s.listen()
-            while True:
-                conn, addr = s.accept()
-                print(f'Connected to {addr}')
-                t = threading.Thread(target=self.onObserve, args=(conn,))
-                t.start()
+        server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        server.bind((self.host, self.port))
+        server.listen(5)
+        while True:
+            client, addr = server.accept()
+            print(f'Connected to {addr}')
+            t = threading.Thread(target=self.onObserve, args=(client,))
+            t.start()
 
-    def onObserve(self, socket):
-        req = socket.recv(1024).decode()
+    def onObserve(self, client):
+        req = client.recv(1024).decode()
         path = req.split('\n')[0].split()[1]
         
         if '/' == path:
-            UI(socket).mount()
+            UI(client).mount()
         elif '/register' == path:
-            Signin.of(socket, req).register()
+            Signin.of(client, req).register()
         elif '/login' == path:
-            Signin.of(socket, req).invoke()
+            Signin.of(client, req).invoke()
         elif '/logout' == path:
-            Signout.of(socket, req).invoke()
+            Signout.of(client, req).invoke()
         elif '/images' in path:
-            Pictures.of(socket, req).invoke()
+            Pictures.of(client, req).invoke()
         elif '/tweets' in path:
-            Posts.of(socket, req).invoke()
+            Posts.of(client, req).invoke()
         else:
             print('Invalid path', path)
-            socket.sendall(b"HTTP/1.1 200 Not OK\r\nContent-Type: text/plain\r\nContent-Length: 13\r\n\r\n404 Not Found")
+            client.sendall(b"HTTP/1.1 200 Not OK\r\nContent-Type: text/plain\r\nContent-Length: 13\r\n\r\n404 Not Found")
+        client.shutdown(socket.SHUT_RDWR)
+        client.close()
     
 if __name__ == '__main__':
     Server().start()
