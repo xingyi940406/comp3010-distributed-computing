@@ -309,7 +309,7 @@ class Posts:
                 self.posts.put(id, o)
                 self.reply('Post updated')
             else:
-                self.socket.sendall(b'HTTP/1.1 404 Bad Request\r\nContent-Type: text/plain\r\n\r\nUrl param does not match object id in the request body')  
+                self.socket.sendall(b'HTTP/1.1 404 Bad Request\r\nContent-Length: 0\r\n\r\n')  
         else:
             self.replyUnauthorized()
         
@@ -328,7 +328,7 @@ class Posts:
         return p['author'] == self.user if p else False
         
     def replyUnauthorized(self):
-        self.socket.sendall(b'HTTP/1.1 401 Unauthorized\r\nContent-Type: text/plain\r\n')
+        self.socket.sendall(b'HTTP/1.1 401 Unauthorized\r\nContent-Length: 0\r\n\r\n')
         
     def nextId(self):
         all = self.posts.all()
@@ -341,7 +341,7 @@ class Posts:
         self.socket.sendall(self.ok(res).encode())
 
     def ok(self, body):
-        return f'HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n\n{body}'
+        return f'HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n\r\n{body}'
     
     def user(self):
         return self.cookies.byId(1)
