@@ -39,6 +39,12 @@
     <button onclick="window.location.href='images.html'">Pictures</button>
 
     <script>
+        let currentUser = null
+
+        function user() {
+            return currentUser
+        }
+
         if (user()) {
             readyForSignout()
             renderPosts()
@@ -95,12 +101,6 @@
             clearAtId('username')
             clearAtId('password')
             clearAtId('post')
-        }
-
-        function user() {
-            for (let c of document.cookie.split(';'))
-                if (c.trim().startsWith('user=')) return c.split('=')[1]
-            return null
         }
 
         function onView() {
@@ -169,12 +169,11 @@
         function auth(path, user, pwd) {
             const req = new XMLHttpRequest()
             req.onload = function() {
-                clearInputs()
                 if (req.status == 200) {
+                    currentUser = path === 'login' ? atId('username').value : atId('register-username').value
                     readyForSignout()
-                    document.cookie = `user=${user}; path=/`;
-                }
-                else alert('Failed to sign in')
+                } else alert('Failed to sign in')
+                clearInputs()
             }
             req.open('POST', 'http://localhost:3000/api/' + path)
             req.setRequestHeader('Content-Type', 'application/json')
@@ -187,21 +186,16 @@
         function onSignout() {
             const req = new XMLHttpRequest()
             req.onload = function() {
-                clearCookies()
-                readyForSignIn()
-                atId('pictures').style.visibility = 'hidden'
+                if (req.status == 200) {
+                    currentUser = null
+                    readyForSignIn()
+                } else alert('Failed to log out')
             }
             req.open('POST', 'http://localhost:3000/api/logout')
             req.setRequestHeader('Content-Type', 'application/json')
             req.send(JSON.stringify({
                 'user': user()
             }))
-        }
-
-        function clearCookies() {
-            let cookies = document.cookie.split(';')
-            for (let i = 0; i < cookies.length; i++)
-                document.cookie = cookies[i] + "=; expires="+ new Date(0).toUTCString();
         }
 
         function readyForSignIn() {

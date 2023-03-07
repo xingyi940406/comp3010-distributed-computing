@@ -17,8 +17,12 @@ class Repo:
         return self.records[i] if self.valid(i) else None
  
     def post(self, o):
-        self.records.append(o)
-        self.save()
+        id = o['id']
+        if (self.at(id) == -1):
+            self.records.append(o)
+            self.save()
+        else:
+            self.put(id, o)
     
     def put(self, id, o):
         i = self.at(id)
@@ -192,7 +196,8 @@ class Signin:
             
     def reply(self, o):
         user = o['user']
-        res = f'HTTP/1.1 200 OK\r\nSet-Cookie: user={user}\r\n\r\n{json.dumps(o)}'
+        print('Cookie user', user)
+        res = f'HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nSet-Cookie: user={user}\r\n\r\n{json.dumps(o)}'
         self.socket.sendall(res.encode())
     
     def user(self):
@@ -231,7 +236,7 @@ class Signout:
         return self.socket.sendall(self.ok().encode())
     
     def ok(self):
-        return f'HTTP/1.1 200 OK\nContent-Type: application/json\r\n\r\n'
+        return f'HTTP/1.1 200 OK\r\nSet-Cookie: user=\r\n'
       
 class Posts:
     
@@ -243,6 +248,7 @@ class Posts:
         self.user = user
         self.posts = RESTful(Repo('posts.json'))
         self.cookies = RESTful(Repo('cookies.json'))
+        print('Current user', self.user)
         
     def strip(self, body):
         i = body.find("{")
