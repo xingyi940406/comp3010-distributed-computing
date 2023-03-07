@@ -15,7 +15,7 @@ class Repo:
     def byId(self, id):
         i = self.at(id)
         return self.records[i] if self.valid(i) else None
-
+ 
     def post(self, o):
         self.records.append(o)
         self.save()
@@ -137,7 +137,7 @@ class Pictures:
             
     def mount(self):
         try:
-            with open('images.html', 'r') as f:
+            with open(self.path.split('/')[1], 'r') as f:
                 ui = f.read()
             res = f'HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n\r\n{ui}'
             self.socket.sendall(res.encode())
@@ -206,7 +206,6 @@ class Signin:
         return user['username'] == username and user['password'] == password
 
     def credentials(self):
-        print(self.body)
         user = json.loads(self.body)
         return (user['username'], user['password'])
   
@@ -334,10 +333,6 @@ class Posts:
     def reply(self, o):
         res = json.dumps(o)
         self.socket.sendall(self.ok(res).encode())
-        print('Reply')
-        print('------------')
-        print(res)
-        print('------------')
 
     def ok(self, body):
         return f'HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n\n{body}'

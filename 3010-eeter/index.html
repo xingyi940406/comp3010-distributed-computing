@@ -32,10 +32,12 @@
         <button id="signin" type="button" onclick="onSignin()">Sign In</button>
     </div>
     <br>
-    <button id="posts" type="button" onclick="onView()">See Posts</button>
+    <button id="posts" type="button" onclick="onView()">Posts</button>
     <input id='post' type='text' placeholder='Write your post'>
     <button id="upload" type="button" onclick="onAdd()">Add</button>
     <ul id="dashboard"></ul>
+    <button onclick="window.location.href='images.html'">Pictures</button>
+
     <script>
         if (user()) {
             readyForSignout()
