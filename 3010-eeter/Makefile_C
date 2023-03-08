@@ -1,0 +1,3 @@
+all: p2
+p2: scraper.c
+	clang -DNDEBUG -o p2 scraper.c

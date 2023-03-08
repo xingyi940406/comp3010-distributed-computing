@@ -1,0 +1,19 @@
+# Define the compiler and compiler flags
+JC = javac
+JFLAGS = 
+
+# Define the source file
+SRCS = Part3.java
+
+# Define the output file
+OUT = Part3.class
+
+# Rule to compile the Java program
+all: $(OUT)
+
+$(OUT): $(SRCS)
+	$(JC) $(JFLAGS) $(SRCS)
+
+# Rule to clean the compiled files
+clean:
+	$(RM) $(OUT)

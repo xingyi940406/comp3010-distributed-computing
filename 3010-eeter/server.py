@@ -307,7 +307,7 @@ class Posts:
             o = json.loads(self.body)
             if o['id'] == id:
                 self.posts.put(id, o)
-                self.reply('Post updated')
+                self.reply('Post Updated')
             else:
                 self.socket.sendall(b'HTTP/1.1 404 Bad Request\r\nContent-Length: 0\r\n\r\n')  
         else:
@@ -315,13 +315,14 @@ class Posts:
         
     def post(self):
         body = json.loads(self.body)
+        id = self.nextId()
         o = {
-            'id': self.nextId(),
+            'id': id,
             'content': body['content'],
             'author': body['author']
         }
         self.posts.post(json.loads(json.dumps(o)))
-        self.reply('Post added')
+        self.reply(self.posts.byId(id))
         
     def isAsAuthor(self, postId):
         p = self.posts.byId(postId)

@@ -5,7 +5,7 @@
 #include <string.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
-
+#include <assert.h>
 #include <netdb.h> // For getaddrinfo
 #include <unistd.h> // for close
 #include <stdlib.h> // for exit
@@ -53,7 +53,7 @@ int main(int argc, char *argv[])
     
     // Set port and IP the same as server-side:
     server_addr.sin_family = AF_INET;
-    server_addr.sin_port = htons(8080);
+    server_addr.sin_port = htons(3000);
     //server_addr.sin_addr.s_addr = inet_addr("127.0.0.1");
     server_addr.sin_addr = serverDetails->sin_addr;
     
@@ -75,41 +75,15 @@ int main(int argc, char *argv[])
     
     */
 
-    if (argc <= 3) {
-        printf("Invalid args");
-        return 1;
-    }
+    // Username
+    char *firstname = argv[1], *lastname = argv[2], *arg = argv[3];
+    char username[100];
+    strcpy(username, firstname);
+    strcat(username, " ");
+    strcat(username, lastname);
+    printf("Signed in with username: %s\n", username);
 
-    // ./out first last test test test
-    //   o     1     2    3    4    5
-    char *first = argv[1], *last = argv[2], *arg = argv[3];
-
-    char author[100];
-    strcpy(author, first);
-    strcat(author, " ");
-    strcpy(author, last);
-
-    char user[1000];
-    sprintf(user, "{\"username\": \"%s\", \"password\": \"%s\"}", author, "123");
-    char auth[2000];
-    sprintf(auth, "POST /register HTTP/1.1\r\nHost: %s:%d\r\nContent-Type: application/json\r\nContent-Length: %lu\r\n\r\n%s", "localhost", 8080, strlen(user), user);
-    if(send(socket_desc, auth, strlen(auth), 0) < 0){
-        printf("Unable to authenticate\n");
-        return -1;
-    }
-
-    // Receive the server's response:
-    if(recv(socket_desc, server_message, sizeof(server_message), 0) < 0){
-        printf("Error while receiving server's msg\n");
-        return -1;
-    }
-    
-    printf("Server's response: %s\n",server_message);
-
-    char author[100];
-    strcpy(author, first);
-    strcat(author, " ");
-    strcpy(author, last);
+    // Post content
     char content[2000];
     strcpy(content, arg);
     for (int i = 4; i < argc; i++) {
@@ -117,43 +91,42 @@ int main(int argc, char *argv[])
         strcat(content, " ");
         strcat(content, arg);
     }
+    printf("Post content: %s\n", content);
 
+    // POST /api/tweet
     char body[2000];
-    sprintf(body, "{\"content\": \"%s\", \"author\": \"%s\"}", content, author); 
+    sprintf(body, "{\"content\": \"%s\", \"author\": \"%s\"}", content, username); 
     char add[2000];
-    sprintf(add, "POST /tweets HTTP/1.1\r\nHost: %s:%d\r\nContent-Type: application/json\r\nContent-Length: %lu\r\n\r\n%s", "localhost", 8080, strlen(body), body);
-    if(send(socket_desc, add, strlen(add), 0) < 0){
-        printf("Unable to add post\n");
-        return -1;
-    }
-
-    // Receive the server's response:
-    if(recv(socket_desc, server_message, sizeof(server_message), 0) < 0){
-        printf("Error while receiving server's msg\n");
-        return -1;
-    }
-    
-    printf("Server's response: %s\n",server_message);
-
-    char all[] = "GET /tweets HTTP/1.1\r\nHost: localhost\r\n\r\n";
-    printf("Sending:\n%s\n", all);
-    // Send the message to server:
-    printf("Sending request, %lu bytes\n", strlen(all));
-    if(send(socket_desc, all, strlen(all), 0) < 0){
+    sprintf(add, "POST /api/tweet HTTP/1.1\r\nHost: %s:%d\r\nContent-Type: application/json\r\nCookie: user=%s\r\nContent-Length: %lu\r\n\r\n%s", "localhost", 3000, username, strlen(body), body);
+    printf("Sending:\n%s\n", add);
+    printf("Sending add, %lu bytes\n", strlen(add));
+    if(send(socket_desc, add, strlen(add), 0) < 0) {
         printf("Unable to send message\n");
         return -1;
     }
-    
-    // Receive the server's response:
-    if(recv(socket_desc, server_message, sizeof(server_message), 0) < 0){
+    memset(server_message,'\0',sizeof(server_message));
+    if(recv(socket_desc, server_message, sizeof(server_message), 0) < 0) {
         printf("Error while receiving server's msg\n");
         return -1;
     }
-    
-    printf("Server's response: %s\n",server_message);
-    
-    // Close the socket:
+    printf("Server's response: %s\n", server_message);
+
+    char *res = strdup(server_message);
+    printf("Result\n");
+    printf("%s\n", res);
+
+    // Verification
+    char *expected_content = strdup(content);
+    char *expected_author = strdup(username);
+    char *actual_content = strstr(res, expected_content);
+    char *actual_author = strstr(res, expected_author);
+
+    assert(actual_content != NULL);
+    assert(actual_author != NULL);
+
+    printf("Assertions passed for POST /api/tweet\n");
+
     close(socket_desc);
-    
+    printf("Socket closed\n");
     return 0;
 }
