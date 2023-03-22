@@ -6,7 +6,7 @@ from contants import Delimiter, Status, Event, Port, Decoding
 class Broker:
     class Job:   
         def __init__(self, id, work):
-            self.id = id;
+            self.id = id
             self.work = work
             self.status = Status.PENDING
             
