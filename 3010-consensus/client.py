@@ -1,8 +1,9 @@
 import sys
 import socket
+import json
 
 class Client:
-    def __init__(self, targetPort, targetHost = 'localhost'):
+    def __init__(self, targetPort, targetHost = 'xiaoranmeng'):
         self.targetPort = targetPort
         self.targetHost = targetHost
     
@@ -12,11 +13,17 @@ class Client:
                 clientSocket.connect((self.targetHost, self.targetPort))
                 
                 while True:
-                    request = input('Command: ')
-                    clientSocket.send(request.encode())
+                    command = input('Command: ')
+                    if command == 'SET':
+                        request = {
+                            'command': 'SET',
+                            'index': 1,
+                            'value': 'wysiwyg'
+                        }
+                        clientSocket.send(json.dumps(request).encode())
                     response = clientSocket.recv(1024)
                     if response:
-                        data = response.decode('utf-8', 'ignore')
+                        data = json.loads(response.decode('utf-8', 'ignore'))
                         print(data)
             except socket.error:
                 print('Socket error')
