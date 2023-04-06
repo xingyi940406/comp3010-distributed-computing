@@ -13,7 +13,6 @@ WELL_KNOWN_HOSTS = [
     'osprey.cs.umanitoba.ca'
 ]
 
-
 class Event:
     
     def __init__(self, id, name, expiry):
@@ -41,21 +40,24 @@ class Peer:
 class Server:
     
     def __init__(self):
+        self.counter = 0 # TODO: debug counter for gossip IDs appended
         self.gossipsReceived = []
         self.peers = {}
-        
-        for host in WELL_KNOWN_HOSTS:
-            key = host + ':16000'
-            self.peers[key] = Peer(host, 16000, 'WK')
-        
+        self.addWellKnownHosts()
         self.words = ['', '', '', '', '']
         self.events = {}
-        e = Event(str(uuid.uuid4()), 'gossip', time.time() + 20) # TODO: 60
+        e = Event(str(uuid.uuid4()), 'gossip', time.time() + 5) # TODO: 60
         self.events[e.id] = e
         
+        # TODO - Create a class for this
         self.host = None
         self.clientPort = None
         self.peerPort = None
+
+    def addWellKnownHosts(self):
+        for host in WELL_KNOWN_HOSTS:
+            key = host + ':16000'
+            self.peers[key] = Peer(host, 16000, 'WK')
     
     def createSockets(self):
         clientSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -84,7 +86,7 @@ class Server:
     def constructPeer(self, gossip):
         return Peer(gossip['host'], gossip['port'], gossip['name'])
     
-    def getEventWithMinExpiry(self):
+    def nextEvent(self):
         return min(self.events.values(), key = lambda e: e.expiry)
     
     def clearExpiredPeers(self):
@@ -106,14 +108,14 @@ class Server:
         with clientSocket, peerSocket:
             while True:
                 try:
-                    event = self.getEventWithMinExpiry()
+                    event = self.nextEvent()
                     timeout = event.expiry - time.time()
                             
                     readable, writable, exceptional = select.select(
-                        inputs + clients, 
-                        outputs, 
-                        inputs + clients, 
-                        timeout if timeout > 0 else 1)
+                        inputs + clients,
+                        outputs,
+                        inputs + clients,
+                        timeout if timeout > 0 else 0.000001)
                     
                     print('Processing readable')
                     
@@ -124,8 +126,10 @@ class Server:
                             print(f"UDP message from {addr}: {res}")
                             command = res['command']
                             if command == 'GOSSIP':
+                                print('Gossip received')
                                 self.onGossiped(int(peerSocket.getsockname()[1]), r, res)
                             elif command == 'GOSSIP_REPLY':
+                                print('Gossip replied')
                                 self.onGossipReplied(res)
                         elif r is clientSocket:
                             conn, addr = r.accept()
@@ -152,6 +156,8 @@ class Server:
                         else:
                             print('Readable not found')
                             
+                    # TODO - for e in exceptional
+                            
                     print('Timed out')
                     
                     self.clearExpiredPeers()
@@ -161,7 +167,6 @@ class Server:
                         n = min(5, len(self.peers))
                         peers = random.sample(list(self.peers.values()), n)
                         for p in peers:
-                            print(f'Gossiping to {p.host}:{p.port}')
                             gossip = {
                                 "command": 'GOSSIP',
                                 "host": self.host,
@@ -170,8 +175,8 @@ class Server:
                                 "messageID": str(uuid.uuid4())
                             }
                             peerSocket.sendto(json.dumps(gossip).encode(), (p.host, p.port))
-                            #  ???
-                        self.events[event.id].renew(time.time() + 10) # TODO: 60
+                            #  TODO: what to do after this point ?
+                        self.events[event.id].renew(time.time() + 5) # TODO: 60
                     elif event.name == 'consensus':
                         pass
                     
@@ -182,34 +187,66 @@ class Server:
                 except Exception as e:
                     print(e)
 
+    def generatePeerKey(self, res):
+        return res['host'] + ':' + str(res['port'])
+
+    def isSelf(self, key):
+        return key == self.host + ':' + str(self.peerPort)
+    
+    def logPeers(self):
+        print('------ Current Peers --------')
+        for k, v in self.peers.items():
+            print(k, v.expiry)
+        print('-----------------------------')
+        
+    def logGossipsReceived(self):
+        print('------ Gossip IDs Received --------')
+        for id in self.gossipsReceived:
+            print(id)
+        print('-----------------------------------')
+
     def onGossipReplied(self, res):
-        key = res['host'] + ':' + str(res['port'])
-        peer = self.constructPeer(res)
-        self.peers[key] = peer
+        key = self.generatePeerKey(res)
+        
+        if key not in self.peers and not self.isSelf(key):
+            peer = self.constructPeer(res)
+            self.peers[key] = peer
+            print(f'Peer {key} added')
+        else:
+            print(f'Renewing peer {key} expiry')
+            self.peers[key].renew()
+        
+        # self.logPeers()
+        # self.logGossipsReceived()
 
     def onGossiped(self, port, peerSocket, res):
         gossipId = res['messageID']
         if gossipId not in self.gossipsReceived:
+            self.counter += 1
+            print('Counter - ', self.counter)
+            print(f'Gossip with ID {gossipId} is added')
+            print(f'------------- Gossip content --------')
+            print(res)
+            print(f'-------------------------------------')
             self.gossipsReceived.append(gossipId)
-            # TODO - debugging
-            print(self.gossipsReceived)
-            key = res['host'] + ':' + str(res['port'])
-            if key not in self.peers:
+
+            key = self.generatePeerKey(res)
+            if key not in self.peers and not self.isSelf(key):
+                key = self.generatePeerKey(res)
                 peer = self.constructPeer(res)
                 self.peers[key] = peer
-                          
-                # TODO - debugging        
-                for k, v in self.peers.items():
-                    print(k)
-                               
+                print(f'Peer {key} added')
+                
+                # self.logPeers()
+                
                 reply = {
                     'command': 'GOSSIP_REPLY',
                     'host': socket.gethostname(),
                     'port': port,
                     'name': 'Me reply',
-                }
-                                        
+                }                     
                 peerSocket.sendto(json.dumps(reply).encode(), (peer.host, peer.port))
+                
             else:
                 print(f'Renewing peer {key} expiry')
                 self.peers[key].renew()
